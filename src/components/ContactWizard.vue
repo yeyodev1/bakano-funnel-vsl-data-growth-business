@@ -44,9 +44,11 @@ function detectDial(): string {
 const step = ref<1 | 2 | 'ok'>(1)
 const loading = ref(false)
 const errMsg = ref('')
-const dir = ref<'fwd' | 'back'>('fwd')
 
-// Step 1
+// Guardar event_id del paso 1 para deduplicación
+let regEventId = ''
+
+// Datos de contacto (paso 1)
 const s1 = ref({
   firstName: '',
   lastName: '',
@@ -56,7 +58,7 @@ const s1 = ref({
   company: '',
 })
 
-// Step 2
+// Datos de cualificación (paso 2)
 const s2 = ref({
   revenue: '',
   location: '',
@@ -119,14 +121,15 @@ function calcTags(): string[] {
   ]
 }
 
-// ── Envíos ────────────────────────────────────────────────────────────────────
+// ── Submit paso 1: datos de contacto → WH_CONTACT → avanza a paso 2 ──────────
 async function submitS1() {
   if (!s1Valid.value || loading.value) return
   loading.value = true
   errMsg.value = ''
   try {
     const phone = `${s1.value.dial}${s1.value.phone.replace(/\D/g, '')}`
-    const regEventId = `reg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    regEventId = `reg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+
     await fetch(WH_CONTACT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,13 +145,14 @@ async function submitS1() {
         ...getStoredFbParams(),
       }),
     })
+
     // Meta Pixel — CompleteRegistration: señal de volumen para el algoritmo
-    // Se dispara para TODO contacto que completa Step 1, sin importar calificación
+    // Se dispara para TODO contacto que completa el formulario, sin importar calificación
     ;(window as any).fbq?.('track', 'CompleteRegistration',
       { content_name: 'contacto-web-bakano' },
       { eventID: regEventId },
     )
-    dir.value = 'fwd'
+
     step.value = 2
   } catch {
     errMsg.value = 'Algo salió mal. Por favor intenta de nuevo.'
@@ -157,38 +161,39 @@ async function submitS1() {
   }
 }
 
+// ── Submit paso 2: cualificación → WH_QUALIFY → pantalla ok ──────────────────
 async function submitS2() {
   if (!s2Valid.value || loading.value) return
   loading.value = true
   errMsg.value = ''
   try {
-    const tags = calcTags()
     const phone = `${s1.value.dial}${s1.value.phone.replace(/\D/g, '')}`
+    const tags = calcTags()
     const notes = buildNotes()
-    if (WH_QUALIFY) {
-      await fetch(WH_QUALIFY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // Datos de contacto (Step 1)
-          firstName: s1.value.firstName.trim(),
-          lastName: s1.value.lastName.trim(),
-          email: s1.value.email.trim(),
-          phone,
-          companyName: s1.value.company.trim(),
-          source: 'bakano-web',
-          // Datos de cualificación (Step 2) — keys = texto exacto de la pregunta en GHL
-          '1. ¿Cuál es el rango de facturación mensual actual de tu negocio?': s2.value.revenue,
-          '2. ¿Dónde se encuentra ubicado tu establecimiento o base de operaciones principal?': s2.value.location,
-          '3. ¿Cuál es tu objetivo principal al invertir en marketing este año?': s2.value.objective,
-          urgency: s2.value.urgency,
-          message: s2.value.message.trim(),
-          tags,
-          // Resumen legible para notas en GHL
-          notes,
-        }),
-      })
-    }
+
+    await fetch(WH_QUALIFY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // Datos de contacto
+        firstName: s1.value.firstName.trim(),
+        lastName: s1.value.lastName.trim(),
+        email: s1.value.email.trim(),
+        phone,
+        companyName: s1.value.company.trim(),
+        source: 'bakano-web',
+        // Datos de cualificación — keys = texto exacto de la pregunta en GHL
+        '1. ¿Cuál es el rango de facturación mensual actual de tu negocio?': s2.value.revenue,
+        '2. ¿Dónde se encuentra ubicado tu establecimiento o base de operaciones principal?': s2.value.location,
+        '3. ¿Cuál es tu objetivo principal al invertir en marketing este año?': s2.value.objective,
+        urgency: s2.value.urgency,
+        message: s2.value.message.trim(),
+        tags,
+        // Resumen legible para notas en GHL
+        notes,
+      }),
+    })
+
     step.value = 'ok'
   } catch {
     errMsg.value = 'Algo salió mal. Por favor intenta de nuevo.'
@@ -197,13 +202,7 @@ async function submitS2() {
   }
 }
 
-function goBack() {
-  dir.value = 'back'
-  step.value = 1
-  errMsg.value = ''
-}
-
-// ── Opciones step 2 ───────────────────────────────────────────────────────────
+// ── Opciones de cualificación ─────────────────────────────────────────────────
 const revenueOpts = [
   { value: 'Menos de $10,000 USD', label: 'Menos de $10,000 USD' },
   { value: 'Entre $10,000 y $25,000 USD', label: 'Entre $10,000 y $25,000 USD' },
@@ -231,32 +230,11 @@ const urgencyOpts = [
 <template>
   <div class="wiz">
 
-    <!-- ── Indicador de paso ───────────────────────────────────────────────── -->
-    <div class="wiz__stepper" v-if="step !== 'ok'">
-      <div class="wiz__stepper-track">
-        <div class="wiz__dot" :class="{ 'is-active': true, 'is-done': step === 2 }">
-          <svg v-if="step === 2" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="3">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          <span v-else>1</span>
-        </div>
-        <div class="wiz__line" :class="{ 'is-active': step === 2 }" />
-        <div class="wiz__dot" :class="{ 'is-active': step === 2 }">
-          <span>2</span>
-        </div>
-      </div>
-      <p class="wiz__step-hint">
-        Paso {{ step === 1 ? '1' : '2' }} de 2 —
-        {{ step === 1 ? 'Tu información de contacto' : 'Cuéntanos sobre tu negocio' }}
-      </p>
-    </div>
-
     <!-- ══════════════════════════════════════
-         STEP 1 — Datos de contacto
+         PASO 1: Datos de contacto
          ══════════════════════════════════════ -->
-    <Transition :name="`wiz-${dir}`" mode="out-in">
-      <div class="wiz__body" v-if="step === 1" key="s1">
+    <Transition name="wiz-fwd" mode="out-in">
+      <div class="wiz__body" v-if="step === 1" key="step1">
 
         <div class="wf-row">
           <div class="wf-field">
@@ -328,12 +306,8 @@ const urgencyOpts = [
           :disabled="!s1Valid || loading"
           @click="submitS1"
         >
-          <span v-if="!loading">Continuar al paso 2</span>
+          <span v-if="!loading">Continuar →</span>
           <span v-else class="wf-spinner" aria-label="Enviando…" />
-          <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
         </button>
 
         <p class="wf-privacy">
@@ -344,10 +318,10 @@ const urgencyOpts = [
     </Transition>
 
     <!-- ══════════════════════════════════════
-         STEP 2 — Cualificación
+         PASO 2: Preguntas de calificación
          ══════════════════════════════════════ -->
-    <Transition :name="`wiz-${dir}`" mode="out-in">
-      <div class="wiz__body" v-if="step === 2" key="s2">
+    <Transition name="wiz-fwd" mode="out-in">
+      <div class="wiz__body" v-if="step === 2" key="step2">
 
         <!-- Q1: Facturación -->
         <div class="wf-question">
@@ -429,27 +403,22 @@ const urgencyOpts = [
 
         <p v-if="errMsg" class="wf-error" role="alert">{{ errMsg }}</p>
 
-        <div class="wf-actions">
-          <button class="wf-btn wf-btn--ghost" type="button" @click="goBack">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            Volver
-          </button>
-          <button
-            class="wf-btn"
-            :disabled="!s2Valid || loading"
-            @click="submitS2"
-          >
-            <span v-if="!loading">Enviar consulta</span>
-            <span v-else class="wf-spinner" aria-label="Enviando…" />
-            <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </button>
-        </div>
+        <button
+          class="wf-btn"
+          :disabled="!s2Valid || loading"
+          @click="submitS2"
+        >
+          <span v-if="!loading">Enviar consulta</span>
+          <span v-else class="wf-spinner" aria-label="Enviando…" />
+          <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+
+        <p class="wf-privacy">
+          Tu información es confidencial y nunca será compartida con terceros.
+        </p>
 
       </div>
     </Transition>
@@ -501,70 +470,7 @@ const urgencyOpts = [
   gap: 28px;
 }
 
-// ── Stepper ──────────────────────────────────────────────────────────────────
-.wiz__stepper {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.wiz__stepper-track {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.wiz__dot {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  @include fonts.interface-font(700);
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.35);
-  transition: all 0.4s ease;
-
-  &.is-active {
-    border-color: colors.$BAKANO-PINK;
-    background: linear-gradient(135deg, colors.$BAKANO-PINK, colors.$BAKANO-PURPLE);
-    color: colors.$white;
-    box-shadow: 0 0 16px rgba(colors.$BAKANO-PINK, 0.35);
-  }
-
-  &.is-done {
-    border-color: colors.$BAKANO-PINK;
-    background: linear-gradient(135deg, colors.$BAKANO-PINK, colors.$BAKANO-PURPLE);
-    color: colors.$white;
-  }
-}
-
-.wiz__line {
-  flex: 1;
-  height: 1.5px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 1px;
-  transition: background 0.4s ease;
-  min-width: 32px;
-
-  &.is-active {
-    background: linear-gradient(90deg, colors.$BAKANO-PINK, colors.$BAKANO-PURPLE);
-  }
-}
-
-.wiz__step-hint {
-  @include fonts.interface-font(500);
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.35);
-  margin: 0;
-  line-height: 1.4;
-}
-
-// ── Cuerpo del paso ──────────────────────────────────────────────────────────
+// ── Cuerpo del formulario ────────────────────────────────────────────────────
 .wiz__body {
   display: flex;
   flex-direction: column;
@@ -675,7 +581,7 @@ const urgencyOpts = [
   }
 }
 
-// ── Preguntas step 2 ─────────────────────────────────────────────────────────
+// ── Preguntas de cualificación ────────────────────────────────────────────────
 .wf-question {
   display: flex;
   flex-direction: column;
@@ -835,13 +741,7 @@ const urgencyOpts = [
   margin: 0;
 }
 
-// ── Botones ───────────────────────────────────────────────────────────────────
-.wf-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
+// ── Botón ─────────────────────────────────────────────────────────────────────
 .wf-btn {
   @include fonts.accent-font(600);
   display: inline-flex;
@@ -868,21 +768,6 @@ const urgencyOpts = [
   &:disabled {
     opacity: 0.38;
     cursor: not-allowed;
-  }
-
-  &--ghost {
-    background: transparent;
-    border: 1.5px solid rgba(255, 255, 255, 0.14);
-    color: rgba(255, 255, 255, 0.55);
-    flex: 0 0 auto;
-    padding: 14px 20px;
-
-    &:hover:not(:disabled) {
-      border-color: rgba(255, 255, 255, 0.28);
-      color: colors.$white;
-      box-shadow: none;
-      transform: translateY(-1px);
-    }
   }
 }
 
@@ -965,11 +850,9 @@ const urgencyOpts = [
   line-height: 1.6;
 }
 
-// ── Transiciones de paso ──────────────────────────────────────────────────────
+// ── Transición de entrada/salida ──────────────────────────────────────────────
 .wiz-fwd-enter-active,
-.wiz-fwd-leave-active,
-.wiz-back-enter-active,
-.wiz-back-leave-active {
+.wiz-fwd-leave-active {
   transition: opacity 0.28s ease, transform 0.28s ease;
 }
 
@@ -981,15 +864,5 @@ const urgencyOpts = [
 .wiz-fwd-leave-to {
   opacity: 0;
   transform: translateX(-24px);
-}
-
-.wiz-back-enter-from {
-  opacity: 0;
-  transform: translateX(-24px);
-}
-
-.wiz-back-leave-to {
-  opacity: 0;
-  transform: translateX(24px);
 }
 </style>
