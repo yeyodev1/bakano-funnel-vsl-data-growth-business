@@ -1,25 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import TheGlobalLoader from './components/globals/TheGlobalLoader.vue'
-
-const isLoaded = ref(false)
-
-const handleLoaderComplete = () => {
-  isLoaded.value = true
-  document.body.style.overflow = ''
-}
-
-onMounted(() => {
-  document.body.style.overflow = 'hidden'
-})
 </script>
 
 <template>
-  <TheGlobalLoader @complete="handleLoaderComplete" />
-
-  <div class="app-wrapper" :class="{ 'app-wrapper--loaded': isLoaded }">
-    <RouterView />
-  </div>
+  <RouterView />
 </template>
 
 <style lang="scss">
@@ -29,17 +12,6 @@ body {
   margin: 0;
   padding: 0;
   background-color: #0a0712;
-}
-
-.app-wrapper {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.5s ease;
-
-  &--loaded {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }
 
 // ── Transición de página ──────────────────────────────────────────────────────
