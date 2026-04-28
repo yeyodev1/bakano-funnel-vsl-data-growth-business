@@ -33,7 +33,7 @@ const isValid = () =>
 const IS_DEV = window.location.hostname === 'localhost'
 
 const qualifies = () => {
-  if (form.value.facturacion === '<10k') return false
+  if (form.value.facturacion === '<5k') return false
   if (form.value.objetivo === 'viral') return false
   return true
 }
@@ -56,9 +56,9 @@ const handleSubmit = async () => {
   ]
 
   const facturacionLabel: Record<string, string> = {
-    '<10k':    'Menos de $10,000 USD',
-    '10k-25k': 'Entre $10,000 y $25,000 USD',
-    '>25k':    'Más de $25,000 USD',
+    '<5k':    'Menos de $5,000 USD',
+    '5k-10k': 'Entre $5,000 y $10,000 USD',
+    '>10k':   'Más de $10,000 USD',
   }
   const ubicacionLabel: Record<string, string> = {
     guayaquil: 'Guayaquil / Samborondón',
@@ -178,9 +178,9 @@ watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { 
                 </legend>
                 <div class="cal-options">
                   <label v-for="opt in [
-                    { value: '<10k', label: 'Menos de $10,000 USD' },
-                    { value: '10k-25k', label: 'Entre $10,000 y $25,000 USD' },
-                    { value: '>25k', label: 'Más de $25,000 USD' },
+                    { value: '<5k', label: 'Menos de $5,000 USD' },
+                    { value: '5k-10k', label: 'Entre $5,000 y $10,000 USD' },
+                    { value: '>10k', label: 'Más de $10,000 USD' },
                   ]" :key="opt.value" class="cal-option" :class="{ selected: form.facturacion === opt.value }">
                     <input type="radio" :value="opt.value" v-model="form.facturacion" hidden />
                     <span class="cal-option__radio" aria-hidden="true" />

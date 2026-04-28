@@ -111,7 +111,7 @@ function calcTags(): string[] {
 
   // Los 3 criterios deben cumplirse para cualificar
   const qualifies =
-    (s2.value.revenue === 'Entre $10,000 y $25,000 USD' || s2.value.revenue === 'Más de $25,000 USD') &&
+    (s2.value.revenue === 'Entre $5,000 y $10,000 USD' || s2.value.revenue === 'Más de $10,000 USD') &&
     s2.value.location === 'Guayaquil / Samborondón' &&
     s2.value.objective !== 'Aumentar seguidores, likes y hacerme viral con tendencias.'
 
@@ -204,9 +204,9 @@ async function submitS2() {
 
 // ── Opciones de cualificación ─────────────────────────────────────────────────
 const revenueOpts = [
-  { value: 'Menos de $10,000 USD', label: 'Menos de $10,000 USD' },
-  { value: 'Entre $10,000 y $25,000 USD', label: 'Entre $10,000 y $25,000 USD' },
-  { value: 'Más de $25,000 USD', label: 'Más de $25,000 USD' },
+  { value: 'Menos de $5,000 USD', label: 'Menos de $5,000 USD' },
+  { value: 'Entre $5,000 y $10,000 USD', label: 'Entre $5,000 y $10,000 USD' },
+  { value: 'Más de $10,000 USD', label: 'Más de $10,000 USD' },
 ]
 
 const locationOpts = [
