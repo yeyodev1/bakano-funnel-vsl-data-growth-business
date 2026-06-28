@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContactStore } from '@/stores/contact'
 import { getStoredFbParams } from '@/utils/fbclid'
@@ -14,6 +14,7 @@ const submitting = ref(false)
 const touched = ref(false)
 
 const form = ref({
+  vertical: '',
   facturacion: '',
   ubicacion: '',
   objetivo: '',
@@ -23,7 +24,29 @@ const form = ref({
 
 const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length
 
+const verticalLabel: Record<string, string> = {
+  producto: 'Producto',
+  gastronomia: 'Gastronomía',
+  servicio: 'Servicio',
+}
+
+const billingOptions = computed(() => {
+  if (form.value.vertical === 'servicio') {
+    return [
+      { value: '<10k', label: 'Menos de $10,000 USD' },
+      { value: '10k-20k', label: 'Entre $10,000 y $20,000 USD' },
+      { value: '>20k', label: 'Más de $20,000 USD' },
+    ]
+  }
+  return [
+    { value: '<15k', label: 'Menos de $15,000 USD' },
+    { value: '15k-30k', label: 'Entre $15,000 y $30,000 USD' },
+    { value: '>30k', label: 'Más de $30,000 USD' },
+  ]
+})
+
 const isValid = () =>
+  !!form.value.vertical &&
   !!form.value.facturacion &&
   !!form.value.ubicacion &&
   !!form.value.objetivo &&
@@ -33,8 +56,12 @@ const isValid = () =>
 const IS_DEV = window.location.hostname === 'localhost'
 
 const qualifies = () => {
-  if (form.value.facturacion === '<10k') return false
   if (form.value.objetivo === 'viral') return false
+  if (form.value.vertical === 'servicio') {
+    if (form.value.facturacion === '<10k') return false
+  } else {
+    if (form.value.facturacion === '<15k') return false
+  }
   return true
 }
 
@@ -50,6 +77,7 @@ const handleSubmit = async () => {
     'funnel-bakano',
     'step-2-cualificacion',
     califica ? 'califica' : 'no-califica',
+    `vertical-${form.value.vertical}`,
     `facturacion-${form.value.facturacion.replace(/[<>]/g, '')}`,
     `ubicacion-${form.value.ubicacion}`,
     `objetivo-${form.value.objetivo}`,
@@ -59,6 +87,9 @@ const handleSubmit = async () => {
     '<10k':   'Menos de $10,000 USD',
     '10k-20k': 'Entre $10,000 y $20,000 USD',
     '>20k':   'Más de $20,000 USD',
+    '<15k':   'Menos de $15,000 USD',
+    '15k-30k': 'Entre $15,000 y $30,000 USD',
+    '>30k':   'Más de $30,000 USD',
   }
   const ubicacionLabel: Record<string, string> = {
     guayaquil: 'Guayaquil / Samborondón',
@@ -74,6 +105,7 @@ const handleSubmit = async () => {
 ━━━━━━━━━━━━━━━━━━━━━━━━
 👤 ${contact.nombre} ${contact.apellido}
 🏢 Negocio: ${contact.negocio}
+🏷️ Vertical: ${verticalLabel[form.value.vertical] ?? form.value.vertical}
 📧 ${contact.email}
 📱 ${contact.telefono}
 ━━━━━━━━━━━━━━━━━━━━━━━━
@@ -90,6 +122,7 @@ const handleSubmit = async () => {
     nombre: contact.nombre || props.nombre,
     apellido: contact.apellido,
     negocio: contact.negocio,
+    vertical: form.value.vertical,
     email: contact.email,
     telefono: contact.telefono,
     facturacion: form.value.facturacion,
@@ -145,7 +178,9 @@ const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') emit('close') 
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
-watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { facturacion: '', ubicacion: '', objetivo: '', mejora: '', consent: false } } })
+watch(() => form.value.vertical, () => { form.value.facturacion = '' })
+
+watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { vertical: '', facturacion: '', ubicacion: '', objetivo: '', mejora: '', consent: false } } })
 </script>
 
 <template>
@@ -166,22 +201,39 @@ watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { 
               Cuéntanos sobre<br>
               <span class="cal-accent">tu negocio</span>
             </h2>
-            <p class="cal-subtitle">4 preguntas rápidas para asignarte al miembro del equipo ideal — 60 segundos.</p>
+            <p class="cal-subtitle">5 preguntas rápidas para asignarte al miembro del equipo ideal — 60 segundos.</p>
 
             <form class="cal-form" @submit.prevent="handleSubmit" novalidate>
+
+              <!-- Q0 -->
+              <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.vertical }">
+                <legend class="cal-legend">
+                  <span class="cal-q-num">01</span>
+                  ¿Cuál es el rubro de tu negocio?
+                </legend>
+                <div class="cal-options">
+                  <label v-for="opt in [
+                    { value: 'producto', label: 'Producto' },
+                    { value: 'gastronomia', label: 'Gastronomía' },
+                    { value: 'servicio', label: 'Servicio' },
+                  ]" :key="opt.value" class="cal-option" :class="{ selected: form.vertical === opt.value }">
+                    <input type="radio" :value="opt.value" v-model="form.vertical" hidden />
+                    <span class="cal-option__radio" aria-hidden="true" />
+                    <span class="cal-option__label">{{ opt.label }}</span>
+                  </label>
+                </div>
+                <span v-if="touched && !form.vertical" class="cal-error">Selecciona una opción</span>
+              </fieldset>
 
               <!-- Q1 -->
               <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.facturacion }">
                 <legend class="cal-legend">
-                  <span class="cal-q-num">01</span>
+                  <span class="cal-q-num">02</span>
                   ¿Cuál es tu facturación mensual actual?
                 </legend>
-                <div class="cal-options">
-                  <label v-for="opt in [
-                    { value: '<10k', label: 'Menos de $10,000 USD' },
-                    { value: '10k-20k', label: 'Entre $10,000 y $20,000 USD' },
-                    { value: '>20k', label: 'Más de $20,000 USD' },
-                  ]" :key="opt.value" class="cal-option" :class="{ selected: form.facturacion === opt.value }">
+                <div v-if="!form.vertical" class="cal-prompt">Selecciona primero el rubro de tu negocio</div>
+                <div v-else class="cal-options">
+                  <label v-for="opt in billingOptions" :key="opt.value" class="cal-option" :class="{ selected: form.facturacion === opt.value }">
                     <input type="radio" :value="opt.value" v-model="form.facturacion" hidden />
                     <span class="cal-option__radio" aria-hidden="true" />
                     <span class="cal-option__label">{{ opt.label }}</span>
@@ -193,7 +245,7 @@ watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { 
               <!-- Q2 -->
               <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.ubicacion }">
                 <legend class="cal-legend">
-                  <span class="cal-q-num">02</span>
+                  <span class="cal-q-num">03</span>
                   ¿Dónde está tu base de operaciones?
                 </legend>
                 <div class="cal-options">
@@ -212,7 +264,7 @@ watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { 
               <!-- Q3 -->
               <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.objetivo }">
                 <legend class="cal-legend">
-                  <span class="cal-q-num">03</span>
+                  <span class="cal-q-num">04</span>
                   ¿Cuál es tu objetivo principal este año?
                 </legend>
                 <div class="cal-options">
@@ -232,7 +284,7 @@ watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { 
               <!-- Q4 -->
               <fieldset class="cal-fieldset" :class="{ 'has-error': touched && wordCount(form.mejora) < 15 }">
                 <legend class="cal-legend">
-                  <span class="cal-q-num">04</span>
+                  <span class="cal-q-num">05</span>
                   ¿Qué quisieras mejorar en tu negocio?
                 </legend>
                 <div class="cal-textarea-wrap">
@@ -401,6 +453,14 @@ $text-body: rgba(255, 255, 255, 0.7);
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.cal-prompt {
+  font-family: fonts.$font-interface;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.3);
+  font-style: italic;
+  padding: 14px 0 4px;
 }
 
 .cal-fieldset {

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteMeta } from 'vue-router'
+import CalificarView from '../views/CalificarView.vue'
 import FunnelView from '../views/FunnelView.vue'
 import VideoView from '../views/VideoView.vue'
 import PrivacyPolicyView from '../views/PrivacyPolicyView.vue'
@@ -118,6 +119,19 @@ const router = createRouter({
         ogTitle: 'Aviso Legal | Bakano Ecuador',
         ogDescription: 'Aviso legal de Bakano Ecuador.',
         ogUrl: 'https://bakano.ec/aviso-legal',
+      } satisfies RouteMeta,
+    },
+    {
+      path: '/calificar',
+      name: 'calificar',
+      component: CalificarView,
+      meta: {
+        title: 'Califica tu negocio | Bakano',
+        description: 'Descubre si tu negocio califica para una asesoría gratuita con Bakano. Completa el formulario y te asignamos al miembro del equipo ideal.',
+        canonical: 'https://bakano.ec/calificar',
+        ogTitle: 'Califica tu negocio | Bakano',
+        ogDescription: 'Descubre si tu negocio califica para una asesoría gratuita.',
+        ogUrl: 'https://bakano.ec/calificar',
       } satisfies RouteMeta,
     },
   ],
