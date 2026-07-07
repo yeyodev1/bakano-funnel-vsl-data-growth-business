@@ -132,7 +132,7 @@ onMounted(() => {
 
         <!-- VSL Frame -->
         <div class="funnel__vsl-wrap">
-          <div class="funnel__vsl-glow" aria-hidden="true" />
+
           <div class="funnel__vsl" role="button" tabindex="0" aria-label="Ver video y registrarse" @click="openModal()" @keydown.enter="openModal()" @keydown.space.prevent="openModal()">
             <img
               src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/pEFChujwCCaMWBNbZYD1/media/698ba28538edf84b711ef48c.png"
@@ -511,17 +511,6 @@ $text-body: rgba(255, 255, 255, 0.72);
 .funnel__vsl-wrap {
   position: relative;
   margin-bottom: 48px;
-}
-
-.funnel__vsl-glow {
-  position: absolute;
-  inset: -40px;
-  background: radial-gradient(ellipse 70% 60% at 50% 50%,
-    rgba(colors.$BAKANO-PINK, 0.12) 0%,
-    rgba(colors.$BAKANO-PURPLE, 0.07) 50%,
-    transparent 70%);
-  pointer-events: none;
-  z-index: 0;
 }
 
 .funnel__vsl {
