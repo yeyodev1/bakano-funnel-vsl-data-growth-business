@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 
 const LOGO = 'https://res.cloudinary.com/dpuody0df/image/upload/v1775587085/bakano/logos/bakano-light.png'
+const BAKANOLOGY_URL = 'https://bakanology.com/'
 
 const hoursLeft = ref(0)
 
@@ -36,36 +37,41 @@ onMounted(() => {
 
       <!-- ICON -->
       <div class="nospace__icon-wrap">
-        <i class="fa-solid fa-circle-xmark nospace__x-icon"></i>
+        <i class="fa-solid fa-heart nospace__heart-icon"></i>
       </div>
 
       <!-- HEADING -->
-      <h1 class="nospace__title">En este momento no tenemos espacio disponible</h1>
+      <h1 class="nospace__title">Todavía no es el momento, y está bien</h1>
 
       <p class="nospace__subtitle">
-        Lo lamentamos. Nuestros cupos de asesoría personalizada están completos.
-        Trabajamos con un número limitado de negocios para garantizar resultados reales.
+        Trabajar con nuestra agencia requiere ciertas condiciones para garantizar resultados reales.
+        Hoy tu negocio no cumple el perfil que necesitamos para darte el impacto que mereces.
+        <br /><br />
+        Pero eso no significa que no puedas crecer. Al contrario.
       </p>
 
-      <!-- COURSE TEASER CARD -->
-      <div class="nospace__course-card">
-        <div class="nospace__course-badge">
+      <!-- ACADEMY CARD -->
+      <div class="nospace__academy-card">
+
+        <div class="nospace__academy-badge">
           <i class="fa-solid fa-graduation-cap"></i>
-          Próximamente
+          Bakanology — Academia
         </div>
 
-        <h3 class="nospace__course-title">Aprende a hacerlo tú mismo</h3>
+        <h2 class="nospace__academy-title">
+          Aprende exactamente lo que hacemos en la agencia
+        </h2>
 
-        <p class="nospace__course-body">
-          Estamos preparando un curso completo donde te enseñaremos exactamente lo que hacemos
-          nosotros: la metodología Data Growth Business™ para que la implementes en tu negocio
-          paso a paso.
+        <p class="nospace__academy-body">
+          Bakanology es nuestra academia donde enseñamos la metodología
+          <strong>Data Growth Business™</strong> paso a paso. Lo mismo que aplicamos
+          con nuestros clientes, ahora disponible para que lo implementes tú mismo en tu negocio.
         </p>
 
-        <ul class="nospace__course-checks">
+        <ul class="nospace__checks">
           <li>
             <i class="fa-solid fa-check"></i>
-            Estrategia data-driven paso a paso
+            Estrategia de datos para tomar decisiones sin adivinar
           </li>
           <li>
             <i class="fa-solid fa-check"></i>
@@ -73,14 +79,19 @@ onMounted(() => {
           </li>
           <li>
             <i class="fa-solid fa-check"></i>
-            Sistemas de ventas predecibles
+            Sistemas de ventas predecibles y escalables
+          </li>
+          <li>
+            <i class="fa-solid fa-check"></i>
+            La misma metodología que usamos con nuestros clientes de agencia
           </li>
         </ul>
 
-        <a href="#" class="btn btn--ghost-purple">
-          <i class="fa-solid fa-bell"></i>
-          Avísame cuando esté disponible
+        <a :href="BAKANOLOGY_URL" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+          <i class="fa-solid fa-arrow-right"></i>
+          Ir a Bakanology
         </a>
+
       </div>
 
       <!-- BACK LINK -->
@@ -139,7 +150,7 @@ onMounted(() => {
     align-items: center;
     text-align: center;
     padding: 4rem 1.5rem 3rem;
-    max-width: 600px;
+    max-width: 640px;
     width: 100%;
     gap: 1.25rem;
   }
@@ -159,9 +170,7 @@ onMounted(() => {
     color: rgba(colors.$BAKANO-PINK, 0.9);
     letter-spacing: 0.01em;
 
-    i {
-      font-size: 0.85rem;
-    }
+    i { font-size: 0.85rem; }
   }
 
   // ── ICON ─────────────────────────────────────────────
@@ -169,17 +178,17 @@ onMounted(() => {
     width: 88px;
     height: 88px;
     border-radius: 50%;
-    background: rgba(colors.$BAKANO-PINK, 0.08);
+    background: rgba(colors.$BAKANO-PURPLE, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1.5px solid rgba(colors.$BAKANO-PINK, 0.25);
+    border: 1.5px solid rgba(colors.$BAKANO-PURPLE, 0.3);
     margin-bottom: 0.5rem;
   }
 
-  &__x-icon {
-    font-size: 3rem;
-    color: rgba(colors.$BAKANO-PINK, 0.8);
+  &__heart-icon {
+    font-size: 2.75rem;
+    color: rgba(colors.$BAKANO-PURPLE, 0.85);
     line-height: 1;
   }
 
@@ -201,22 +210,25 @@ onMounted(() => {
     line-height: 1.7;
   }
 
-  // ── COURSE CARD ──────────────────────────────────────
-  &__course-card {
+  // ── ACADEMY CARD ─────────────────────────────────────
+  &__academy-card {
     width: 100%;
     background: rgba(colors.$BAKANO-PURPLE, 0.08);
     border: 1.5px solid rgba(colors.$BAKANO-PURPLE, 0.45);
     border-radius: 16px;
-    padding: 1.75rem 1.75rem 1.5rem;
+    padding: 2rem 1.75rem 1.75rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-    box-shadow: 0 0 32px rgba(colors.$BAKANO-PURPLE, 0.12), 0 0 8px rgba(colors.$BAKANO-PURPLE, 0.08);
+    box-shadow:
+      0 0 40px rgba(colors.$BAKANO-PURPLE, 0.14),
+      0 0 10px rgba(colors.$BAKANO-PURPLE, 0.08);
     text-align: center;
+    margin-top: 0.5rem;
   }
 
-  &__course-badge {
+  &__academy-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -231,29 +243,33 @@ onMounted(() => {
     letter-spacing: 0.04em;
     text-transform: uppercase;
 
-    i {
-      font-size: 0.75rem;
-    }
+    i { font-size: 0.75rem; }
   }
 
-  &__course-title {
+  &__academy-title {
     font-family: fonts.$font-principal;
     font-weight: 800;
-    font-size: clamp(1.2rem, 3vw, 1.5rem);
+    font-size: clamp(1.2rem, 3vw, 1.55rem);
     color: colors.$white;
     margin: 0;
     line-height: 1.25;
   }
 
-  &__course-body {
+  &__academy-body {
     font-family: fonts.$font-secondary;
     font-size: 0.95rem;
-    color: rgba(colors.$white, 0.55);
+    color: rgba(colors.$white, 0.6);
     margin: 0;
     line-height: 1.75;
+
+    strong {
+      color: rgba(colors.$white, 0.85);
+      font-weight: 600;
+    }
   }
 
-  &__course-checks {
+  // ── CHECKS ───────────────────────────────────────────
+  &__checks {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -304,6 +320,24 @@ onMounted(() => {
   transition: all 0.25s ease;
   text-decoration: none;
 
+  &--primary {
+    background: colors.$BAKANO-PURPLE;
+    border: 1.5px solid colors.$BAKANO-PURPLE;
+    color: colors.$white;
+    width: 100%;
+    justify-content: center;
+    font-size: 1rem;
+    padding: 0.95rem 2rem;
+    margin-top: 0.25rem;
+
+    &:hover {
+      background: rgba(colors.$BAKANO-PURPLE, 0.85);
+      border-color: rgba(colors.$BAKANO-PURPLE, 0.85);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(colors.$BAKANO-PURPLE, 0.35);
+    }
+  }
+
   &--ghost {
     background: transparent;
     border: 1.5px solid rgba(colors.$white, 0.2);
@@ -314,18 +348,6 @@ onMounted(() => {
       border-color: rgba(colors.$white, 0.5);
       color: colors.$white;
       background: rgba(colors.$white, 0.04);
-    }
-  }
-
-  &--ghost-purple {
-    background: transparent;
-    border: 1.5px solid rgba(colors.$BAKANO-PURPLE, 0.5);
-    color: rgba(colors.$BAKANO-PURPLE, 0.9);
-
-    &:hover {
-      border-color: colors.$BAKANO-PURPLE;
-      color: colors.$white;
-      background: rgba(colors.$BAKANO-PURPLE, 0.12);
     }
   }
 }
