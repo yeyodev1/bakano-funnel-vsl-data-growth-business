@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContactStore } from '@/stores/contact'
 import { getStoredFbParams } from '@/utils/fbclid'
+import {
+  REVENUE_LABELS,
+  REVENUE_OPTIONS,
+  ROLE_LABELS,
+  ROLE_OPTIONS,
+  qualifiesAsHighValueLead,
+} from '@/utils/qualification'
 
 const contactStore = useContactStore()
 
@@ -13,8 +20,35 @@ const router = useRouter()
 const submitting = ref(false)
 const touched = ref(false)
 
+// ── Wizard paso a paso ──────────────────────────────────────────────────────
+const step = ref(1)
+const TOTAL_STEPS = 6
+const modalEl = ref<HTMLElement | null>(null)
+let advanceTimer: ReturnType<typeof setTimeout> | null = null
+
+const scrollModalTop = () => {
+  modalEl.value?.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const autoAdvance = () => {
+  if (step.value >= TOTAL_STEPS) return
+  if (advanceTimer) clearTimeout(advanceTimer)
+  advanceTimer = setTimeout(() => {
+    step.value += 1
+    scrollModalTop()
+  }, 280)
+}
+
+const prevStep = () => {
+  if (step.value <= 1) return
+  if (advanceTimer) clearTimeout(advanceTimer)
+  step.value -= 1
+  scrollModalTop()
+}
+
 const form = ref({
   vertical: '',
+  rol: '',
   facturacion: '',
   ubicacion: '',
   objetivo: '',
@@ -24,29 +58,31 @@ const form = ref({
 
 const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length
 
+const currentStepHasValue = () => {
+  switch (step.value) {
+    case 1: return !!form.value.vertical
+    case 2: return !!form.value.rol
+    case 3: return !!form.value.facturacion
+    case 4: return !!form.value.ubicacion
+    case 5: return !!form.value.objetivo
+    default: return false
+  }
+}
+
+const nextStep = () => {
+  step.value += 1
+  scrollModalTop()
+}
+
 const verticalLabel: Record<string, string> = {
   producto: 'Producto',
   gastronomia: 'Gastronomía',
   servicio: 'Servicio',
 }
 
-const billingOptions = computed(() => {
-  if (form.value.vertical === 'servicio') {
-    return [
-      { value: '<10k', label: 'Menos de $10,000 USD' },
-      { value: '10k-20k', label: 'Entre $10,000 y $20,000 USD' },
-      { value: '>20k', label: 'Más de $20,000 USD' },
-    ]
-  }
-  return [
-    { value: '<15k', label: 'Menos de $15,000 USD' },
-    { value: '15k-30k', label: 'Entre $15,000 y $30,000 USD' },
-    { value: '>30k', label: 'Más de $30,000 USD' },
-  ]
-})
-
 const isValid = () =>
   !!form.value.vertical &&
+  !!form.value.rol &&
   !!form.value.facturacion &&
   !!form.value.ubicacion &&
   !!form.value.objetivo &&
@@ -55,50 +91,38 @@ const isValid = () =>
 
 const IS_DEV = window.location.hostname === 'localhost'
 
-const qualifies = () => {
-  if (form.value.objetivo === 'viral') return false
-  if (form.value.vertical === 'servicio') {
-    if (form.value.facturacion === '<10k') return false
-  } else {
-    if (form.value.facturacion === '<15k') return false
-  }
-  return true
-}
-
 const handleSubmit = async () => {
   touched.value = true
   if (!isValid()) return
   submitting.value = true
 
   const contact = contactStore.get()
-  const califica = qualifies()
+  const califica = qualifiesAsHighValueLead(
+    form.value.rol,
+    form.value.facturacion,
+    form.value.objetivo,
+  )
 
   const etiquetas = [
     'funnel-bakano',
     'step-2-cualificacion',
     califica ? 'califica' : 'no-califica',
+    califica ? 'lead-calificado-20k' : 'nutricion-sub-20k',
     `vertical-${form.value.vertical}`,
+    `rol-${form.value.rol}`,
     `facturacion-${form.value.facturacion.replace(/[<>]/g, '')}`,
     `ubicacion-${form.value.ubicacion}`,
     `objetivo-${form.value.objetivo}`,
   ]
 
-  const facturacionLabel: Record<string, string> = {
-    '<10k':   'Menos de $10,000 USD',
-    '10k-20k': 'Entre $10,000 y $20,000 USD',
-    '>20k':   'Más de $20,000 USD',
-    '<15k':   'Menos de $15,000 USD',
-    '15k-30k': 'Entre $15,000 y $30,000 USD',
-    '>30k':   'Más de $30,000 USD',
-  }
   const ubicacionLabel: Record<string, string> = {
     guayaquil: 'Guayaquil / Samborondón',
-    otra:      'Otra ciudad / extranjero',
+    otra: 'Otra ciudad / extranjero',
   }
   const objetivoLabel: Record<string, string> = {
-    viral:       'Aumentar seguidores y hacerse viral',
+    viral: 'Aumentar seguidores y hacerse viral',
     facturacion: 'Abrir mercado y aumentar facturación con datos',
-    ventas:      'Profesionalizar ventas y captación',
+    ventas: 'Profesionalizar ventas y captación',
   }
 
   const nota = `${califica ? '✅ LEAD CALIFICADO' : '❌ NO CALIFICA'} — Bakano Funnel
@@ -106,10 +130,11 @@ const handleSubmit = async () => {
 👤 ${contact.nombre} ${contact.apellido}
 🏢 Negocio: ${contact.negocio}
 🏷️ Vertical: ${verticalLabel[form.value.vertical] ?? form.value.vertical}
+Rol: ${ROLE_LABELS[form.value.rol] ?? form.value.rol}
 📧 ${contact.email}
 📱 ${contact.telefono}
 ━━━━━━━━━━━━━━━━━━━━━━━━
-💰 Facturación: ${facturacionLabel[form.value.facturacion] ?? form.value.facturacion}
+💰 Facturación: ${REVENUE_LABELS[form.value.facturacion] ?? form.value.facturacion}
 📍 Ubicación: ${ubicacionLabel[form.value.ubicacion] ?? form.value.ubicacion}
 🎯 Objetivo: ${objetivoLabel[form.value.objetivo] ?? form.value.objetivo}
 💡 Mejora: ${form.value.mejora}
@@ -123,6 +148,7 @@ const handleSubmit = async () => {
     apellido: contact.apellido,
     negocio: contact.negocio,
     vertical: form.value.vertical,
+    rol: form.value.rol,
     email: contact.email,
     telefono: contact.telefono,
     facturacion: form.value.facturacion,
@@ -130,6 +156,8 @@ const handleSubmit = async () => {
     objetivo: form.value.objetivo,
     mejora: form.value.mejora,
     califica,
+    qualification_status: califica ? 'qualified_20k_owner' : 'nurture',
+    event_name: califica ? 'Lead' : 'QualificationCompleted',
     resultado: califica ? 'AGENDA' : 'RECHAZADO',
     etiquetas,
     nota,
@@ -141,27 +169,44 @@ const handleSubmit = async () => {
   const scheduleEventId = `schedule_${Date.now()}_${Math.random().toString(36).slice(2)}`
 
   // Reemplazar el event_id temporal de la nota con el real
-  const finalPayload = { ...payload, nota: payload.nota.replace(/schedule_\d+_bk/, scheduleEventId), event_id: scheduleEventId }
+  const finalPayload = {
+    ...payload,
+    nota: payload.nota.replace(/schedule_\d+_bk/, scheduleEventId),
+    event_id: scheduleEventId,
+  }
 
-  await fetch('https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/69dc0e5f-e2c0-4e9f-9625-10a708787d59', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(finalPayload),
-  }).catch(() => {})
-
-  // Meta Pixel — step 2 completado (todos los envíos)
-  ;(window as any).fbq?.('track', 'CompleteRegistration',
-    { content_name: 'cualificacion-step2', status: califica ? 'califica' : 'no-califica' },
-    { eventID: scheduleEventId }
-  )
+  await fetch(
+    'https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/69dc0e5f-e2c0-4e9f-9625-10a708787d59',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(finalPayload),
+    },
+  ).catch(() => {})
 
   if (califica) {
-    // Meta Pixel — evento Schedule (deduplicado con CAPI via event_id)
-    ;(window as any).fbq?.('track', 'Schedule',
-      { content_name: 'cita-estrategica' },
-      { eventID: scheduleEventId }
+    // Solo los decisores que superan $20k entrenan la optimización de leads.
+    ;(window as any).fbq?.(
+      'track',
+      'Lead',
+      {
+        content_name: 'lead-calificado-20k',
+        role: form.value.rol,
+        revenue_range: form.value.facturacion,
+      },
+      { eventID: scheduleEventId },
     )
   }
+
+  localStorage.setItem(
+    'bk_qualification',
+    JSON.stringify({
+      rol: form.value.rol,
+      facturacion: form.value.facturacion,
+      califica,
+      timestamp: Date.now(),
+    }),
+  )
 
   submitting.value = false
   emit('close')
@@ -173,118 +218,247 @@ const handleSubmit = async () => {
   }
 }
 
-const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') emit('close') }
+const onKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') emit('close')
+}
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+  if (advanceTimer) clearTimeout(advanceTimer)
+})
 
-watch(() => form.value.vertical, () => { form.value.facturacion = '' })
+watch(() => form.value.vertical, (v) => { if (v && step.value === 1) autoAdvance() })
+watch(() => form.value.rol, (v) => { if (v && step.value === 2) autoAdvance() })
+watch(() => form.value.facturacion, (v) => { if (v && step.value === 3) autoAdvance() })
+watch(() => form.value.ubicacion, (v) => { if (v && step.value === 4) autoAdvance() })
+watch(() => form.value.objetivo, (v) => { if (v && step.value === 5) autoAdvance() })
 
-watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { vertical: '', facturacion: '', ubicacion: '', objetivo: '', mejora: '', consent: false } } })
+watch(
+  () => props.open,
+  (v) => {
+    if (v) {
+      step.value = 1
+      touched.value = false
+      submitting.value = false
+      form.value = {
+        vertical: '',
+        rol: '',
+        facturacion: '',
+        ubicacion: '',
+        objetivo: '',
+        mejora: '',
+        consent: false,
+      }
+    }
+  },
+)
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="cal-fade">
-      <div v-if="props.open" class="cal-overlay" @click.self="$emit('close')" role="dialog" aria-modal="true" aria-labelledby="cal-title">
-        <div class="cal-modal">
-
+      <div
+        v-if="props.open"
+        class="cal-overlay"
+        @click.self="$emit('close')"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cal-title"
+      >
+        <div ref="modalEl" class="cal-modal">
           <button class="cal-close" @click="$emit('close')" aria-label="Cerrar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
 
           <!-- ── CALIFICACIÓN ──────────────────────────────── -->
           <p class="cal-eyebrow">Paso final</p>
-            <h2 id="cal-title" class="cal-title">
-              Cuéntanos sobre<br>
-              <span class="cal-accent">tu negocio</span>
-            </h2>
-            <p class="cal-subtitle">5 preguntas rápidas para asignarte al miembro del equipo ideal — 60 segundos.</p>
+          <h2 id="cal-title" class="cal-title">
+            Cuéntanos sobre<br />
+            <span class="cal-accent">tu negocio</span>
+          </h2>
+          <p class="cal-subtitle">Una pregunta a la vez — 60 segundos.</p>
 
-            <form class="cal-form" @submit.prevent="handleSubmit" novalidate>
+          <!-- ── Progreso ─────────────────────────────────────── -->
+          <div class="cal-progress">
+            <p class="cal-progress__label">Pregunta {{ step }} de {{ TOTAL_STEPS }}</p>
+            <div
+              class="cal-progress__track"
+              role="progressbar"
+              :aria-valuenow="step"
+              aria-valuemin="1"
+              :aria-valuemax="TOTAL_STEPS"
+            >
+              <div
+                class="cal-progress__fill"
+                :style="{ width: `${(step / TOTAL_STEPS) * 100}%` }"
+              />
+            </div>
+          </div>
 
-              <!-- Q0 -->
-              <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.vertical }">
+          <form class="cal-form" @submit.prevent="handleSubmit" novalidate>
+            <Transition name="cal-step" mode="out-in">
+              <!-- Paso 1: rubro -->
+              <fieldset v-if="step === 1" key="q1" class="cal-fieldset">
                 <legend class="cal-legend">
                   <span class="cal-q-num">01</span>
                   ¿Cuál es el rubro de tu negocio?
                 </legend>
                 <div class="cal-options">
-                  <label v-for="opt in [
-                    { value: 'producto', label: 'Producto' },
-                    { value: 'gastronomia', label: 'Gastronomía' },
-                    { value: 'servicio', label: 'Servicio' },
-                  ]" :key="opt.value" class="cal-option" :class="{ selected: form.vertical === opt.value }">
-                    <input type="radio" :value="opt.value" v-model="form.vertical" hidden />
+                  <label
+                    v-for="opt in [
+                      { value: 'producto', label: 'Producto' },
+                      { value: 'gastronomia', label: 'Gastronomía' },
+                      { value: 'servicio', label: 'Servicio' },
+                    ]"
+                    :key="opt.value"
+                    class="cal-option"
+                    :class="{ selected: form.vertical === opt.value }"
+                  >
+                    <input
+                      type="radio"
+                      :value="opt.value"
+                      v-model="form.vertical"
+                      hidden
+                    />
                     <span class="cal-option__radio" aria-hidden="true" />
                     <span class="cal-option__label">{{ opt.label }}</span>
                   </label>
                 </div>
-                <span v-if="touched && !form.vertical" class="cal-error">Selecciona una opción</span>
               </fieldset>
 
-              <!-- Q1 -->
-              <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.facturacion }">
+              <!-- Paso 2: rol -->
+              <fieldset v-else-if="step === 2" key="q2" class="cal-fieldset">
                 <legend class="cal-legend">
                   <span class="cal-q-num">02</span>
-                  ¿Cuál es tu facturación mensual actual?
+                  ¿Cuál es tu rol en el negocio?
                 </legend>
-                <div v-if="!form.vertical" class="cal-prompt">Selecciona primero el rubro de tu negocio</div>
-                <div v-else class="cal-options">
-                  <label v-for="opt in billingOptions" :key="opt.value" class="cal-option" :class="{ selected: form.facturacion === opt.value }">
-                    <input type="radio" :value="opt.value" v-model="form.facturacion" hidden />
+                <div class="cal-options">
+                  <label
+                    v-for="opt in ROLE_OPTIONS"
+                    :key="opt.value"
+                    class="cal-option"
+                    :class="{ selected: form.rol === opt.value }"
+                  >
+                    <input
+                      type="radio"
+                      :value="opt.value"
+                      v-model="form.rol"
+                      hidden
+                    />
                     <span class="cal-option__radio" aria-hidden="true" />
                     <span class="cal-option__label">{{ opt.label }}</span>
                   </label>
                 </div>
-                <span v-if="touched && !form.facturacion" class="cal-error">Selecciona una opción</span>
               </fieldset>
 
-              <!-- Q2 -->
-              <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.ubicacion }">
+              <!-- Paso 3: facturación -->
+              <fieldset v-else-if="step === 3" key="q3" class="cal-fieldset">
                 <legend class="cal-legend">
                   <span class="cal-q-num">03</span>
+                  ¿Cuál es tu facturación mensual actual?
+                </legend>
+                <div class="cal-options">
+                  <label
+                    v-for="opt in REVENUE_OPTIONS"
+                    :key="opt.value"
+                    class="cal-option"
+                    :class="{ selected: form.facturacion === opt.value }"
+                  >
+                    <input
+                      type="radio"
+                      :value="opt.value"
+                      v-model="form.facturacion"
+                      hidden
+                    />
+                    <span class="cal-option__radio" aria-hidden="true" />
+                    <span class="cal-option__label">{{ opt.label }}</span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <!-- Paso 4: ubicación -->
+              <fieldset v-else-if="step === 4" key="q4" class="cal-fieldset">
+                <legend class="cal-legend">
+                  <span class="cal-q-num">04</span>
                   ¿Dónde está tu base de operaciones?
                 </legend>
                 <div class="cal-options">
-                  <label v-for="opt in [
-                    { value: 'guayaquil', label: 'Guayaquil / Samborondón' },
-                    { value: 'otra', label: 'Otra ciudad de Ecuador o el extranjero' },
-                  ]" :key="opt.value" class="cal-option" :class="{ selected: form.ubicacion === opt.value }">
-                    <input type="radio" :value="opt.value" v-model="form.ubicacion" hidden />
+                  <label
+                    v-for="opt in [
+                      { value: 'guayaquil', label: 'Guayaquil / Samborondón' },
+                      { value: 'otra', label: 'Otra ciudad de Ecuador o el extranjero' },
+                    ]"
+                    :key="opt.value"
+                    class="cal-option"
+                    :class="{ selected: form.ubicacion === opt.value }"
+                  >
+                    <input
+                      type="radio"
+                      :value="opt.value"
+                      v-model="form.ubicacion"
+                      hidden
+                    />
                     <span class="cal-option__radio" aria-hidden="true" />
                     <span class="cal-option__label">{{ opt.label }}</span>
                   </label>
                 </div>
-                <span v-if="touched && !form.ubicacion" class="cal-error">Selecciona una opción</span>
               </fieldset>
 
-              <!-- Q3 -->
-              <fieldset class="cal-fieldset" :class="{ 'has-error': touched && !form.objetivo }">
+              <!-- Paso 5: objetivo -->
+              <fieldset v-else-if="step === 5" key="q5" class="cal-fieldset">
                 <legend class="cal-legend">
-                  <span class="cal-q-num">04</span>
+                  <span class="cal-q-num">05</span>
                   ¿Cuál es tu objetivo principal este año?
                 </legend>
                 <div class="cal-options">
-                  <label v-for="opt in [
-                    { value: 'viral', label: 'Aumentar seguidores, likes y hacerme viral' },
-                    { value: 'facturacion', label: 'Abrir mercado y aumentar facturación con datos' },
-                    { value: 'ventas', label: 'Profesionalizar mi proceso de ventas y captación' },
-                  ]" :key="opt.value" class="cal-option" :class="{ selected: form.objetivo === opt.value }">
-                    <input type="radio" :value="opt.value" v-model="form.objetivo" hidden />
+                  <label
+                    v-for="opt in [
+                      { value: 'viral', label: 'Aumentar seguidores, likes y hacerme viral' },
+                      {
+                        value: 'facturacion',
+                        label: 'Abrir mercado y aumentar facturación con datos',
+                      },
+                      {
+                        value: 'ventas',
+                        label: 'Profesionalizar mi proceso de ventas y captación',
+                      },
+                    ]"
+                    :key="opt.value"
+                    class="cal-option"
+                    :class="{ selected: form.objetivo === opt.value }"
+                  >
+                    <input
+                      type="radio"
+                      :value="opt.value"
+                      v-model="form.objetivo"
+                      hidden
+                    />
                     <span class="cal-option__radio" aria-hidden="true" />
                     <span class="cal-option__label">{{ opt.label }}</span>
                   </label>
                 </div>
-                <span v-if="touched && !form.objetivo" class="cal-error">Selecciona una opción</span>
               </fieldset>
 
-              <!-- Q4 -->
-              <fieldset class="cal-fieldset" :class="{ 'has-error': touched && wordCount(form.mejora) < 15 }">
+              <!-- Paso 6: mejora + consentimiento -->
+              <fieldset
+                v-else-if="step === 6"
+                key="q6"
+                class="cal-fieldset"
+                :class="{ 'has-error': touched && wordCount(form.mejora) < 15 }"
+              >
                 <legend class="cal-legend">
-                  <span class="cal-q-num">05</span>
+                  <span class="cal-q-num">06</span>
                   ¿Qué quisieras mejorar en tu negocio?
                 </legend>
                 <div class="cal-textarea-wrap">
@@ -301,43 +475,125 @@ watch(() => props.open, (v) => { if (v) { touched.value = false; form.value = { 
                       Escribe al menos 15 palabras (llevas {{ wordCount(form.mejora) }})
                     </span>
                     <span v-else class="cal-word-hint">
-                      {{ wordCount(form.mejora) }} palabra{{ wordCount(form.mejora) !== 1 ? 's' : '' }}
+                      {{ wordCount(form.mejora) }} palabra{{
+                        wordCount(form.mejora) !== 1 ? 's' : ''
+                      }}
                       <span v-if="wordCount(form.mejora) >= 15" class="cal-word-ok">
                         <i class="fa-solid fa-circle-check" />
                       </span>
                     </span>
                   </div>
                 </div>
+
+                <!-- Consent -->
+                <label class="cal-consent" :class="{ 'has-error': touched && !form.consent }">
+                  <input type="checkbox" v-model="form.consent" hidden />
+                  <span
+                    class="cal-consent__box"
+                    :class="{ checked: form.consent }"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      v-if="form.consent"
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </span>
+                  <span class="cal-consent__text">
+                    Consiento que Bakano me contacte para ofrecerme sus servicios y acepto sus
+                    <RouterLink to="/politicas-privacidad" target="_blank" class="cal-link"
+                      >términos y condiciones</RouterLink
+                    >.
+                  </span>
+                </label>
               </fieldset>
+            </Transition>
 
-              <!-- Consent -->
-              <label class="cal-consent" :class="{ 'has-error': touched && !form.consent }">
-                <input type="checkbox" v-model="form.consent" hidden />
-                <span class="cal-consent__box" :class="{ checked: form.consent }" aria-hidden="true">
-                  <svg v-if="form.consent" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                    <polyline points="20 6 9 17 4 12"/>
+            <!-- ── Navegación ──────────────────────────────────── -->
+            <div class="cal-nav">
+              <div class="cal-nav-row">
+                <button
+                  type="button"
+                  class="cal-back"
+                  @click="prevStep"
+                  :class="{ invisible: step <= 1 }"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <polyline points="15 18 9 12 15 6" />
                   </svg>
-                </span>
-                <span class="cal-consent__text">
-                  Consiento que Bakano me contacte para ofrecerme sus servicios y acepto sus
-                  <RouterLink to="/politicas-privacidad" target="_blank" class="cal-link">términos y condiciones</RouterLink>.
-                </span>
-              </label>
+                  Atrás
+                </button>
 
-              <button class="cal-btn" type="submit" :disabled="submitting">
-                <svg v-if="submitting" class="cal-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                <button
+                  v-if="step < TOTAL_STEPS && currentStepHasValue()"
+                  type="button"
+                  class="cal-next"
+                  @click="nextStep"
+                >
+                  Siguiente
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </div>
+
+              <button
+                v-if="step === TOTAL_STEPS"
+                class="cal-btn"
+                type="submit"
+                :disabled="submitting"
+              >
+                <svg
+                  v-if="submitting"
+                  class="cal-spinner"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
                 <template v-else>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
                 </template>
                 {{ submitting ? 'Verificando...' : 'CONFIRMAR Y VER DISPONIBILIDAD' }}
               </button>
-
-            </form>
-
+            </div>
+          </form>
         </div>
       </div>
     </Transition>
@@ -379,8 +635,8 @@ $text-body: rgba(255, 255, 255, 0.7);
   border-radius: 24px;
   padding: 48px 36px 40px;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.03) inset,
-    0 40px 100px rgba(0,0,0,0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 40px 100px rgba(0, 0, 0, 0.8),
     0 0 80px rgba(colors.$BAKANO-PURPLE, 0.08);
   max-height: 92vh;
   overflow-y: auto;
@@ -399,13 +655,15 @@ $text-body: rgba(255, 255, 255, 0.7);
   height: 34px;
   border-radius: 50%;
   border: 1px solid $border;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   color: $text-muted;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.2s, color 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
 
   &:hover {
     border-color: rgba(colors.$BAKANO-PURPLE, 0.4);
@@ -458,7 +716,7 @@ $text-body: rgba(255, 255, 255, 0.7);
 .cal-prompt {
   font-family: fonts.$font-interface;
   font-size: 0.78rem;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255, 255, 255, 0.3);
   font-style: italic;
   padding: 14px 0 4px;
 }
@@ -476,7 +734,7 @@ $text-body: rgba(255, 255, 255, 0.7);
   font-family: fonts.$font-interface;
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -509,9 +767,11 @@ $text-body: rgba(255, 255, 255, 0.7);
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid $border;
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
-  transition: border-color 0.18s, background 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
 
   &:hover {
     border-color: rgba(colors.$BAKANO-PURPLE, 0.3);
@@ -537,7 +797,7 @@ $text-body: rgba(255, 255, 255, 0.7);
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.2);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
   position: relative;
   transition: border-color 0.18s;
@@ -550,7 +810,9 @@ $text-body: rgba(255, 255, 255, 0.7);
     background: linear-gradient(135deg, colors.$BAKANO-PINK, colors.$BAKANO-PURPLE);
     opacity: 0;
     transform: scale(0.4);
-    transition: opacity 0.18s, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+      opacity 0.18s,
+      transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 
@@ -588,13 +850,15 @@ $text-body: rgba(255, 255, 255, 0.7);
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  border: 2px solid rgba(255,255,255,0.2);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
   margin-top: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.18s, background 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
   color: colors.$white;
 
   &.checked {
@@ -616,7 +880,9 @@ $text-body: rgba(255, 255, 255, 0.7);
   text-underline-offset: 2px;
   transition: color 0.2s;
 
-  &:hover { color: colors.$BAKANO-PURPLE; }
+  &:hover {
+    color: colors.$BAKANO-PURPLE;
+  }
 }
 
 // ── Button ────────────────────────────────────────────────────────────────────
@@ -638,7 +904,10 @@ $text-body: rgba(255, 255, 255, 0.7);
   border-radius: 12px;
   cursor: pointer;
   box-shadow: 0 8px 28px rgba(colors.$BAKANO-PURPLE, 0.4);
-  transition: transform 0.2s ease, box-shadow 0.25s ease, opacity 0.2s;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.25s ease,
+    opacity 0.2s;
   text-decoration: none;
 
   &:hover:not(:disabled) {
@@ -646,7 +915,9 @@ $text-body: rgba(255, 255, 255, 0.7);
     box-shadow: 0 14px 40px rgba(colors.$BAKANO-PURPLE, 0.55);
   }
 
-  &:active:not(:disabled) { transform: translateY(0); }
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 
   &:disabled {
     opacity: 0.7;
@@ -660,7 +931,7 @@ $text-body: rgba(255, 255, 255, 0.7);
     box-shadow: none;
 
     &:hover:not(:disabled) {
-      border-color: rgba(255,255,255,0.2);
+      border-color: rgba(255, 255, 255, 0.2);
       color: colors.$white;
       box-shadow: none;
     }
@@ -681,17 +952,19 @@ $text-body: rgba(255, 255, 255, 0.7);
   padding: 12px 14px;
   font-family: fonts.$font-secondary;
   font-size: 0.86rem;
-  color: rgba(255,255,255,0.85);
-  background: rgba(255,255,255,0.03);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid $border;
   border-radius: 12px;
   outline: none;
-  transition: border-color 0.18s, background 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
   line-height: 1.55;
   box-sizing: border-box;
 
   &::placeholder {
-    color: rgba(255,255,255,0.22);
+    color: rgba(255, 255, 255, 0.22);
   }
 
   &:focus {
@@ -724,15 +997,23 @@ $text-body: rgba(255, 255, 255, 0.7);
   font-size: 0.75rem;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-.cal-spinner { animation: spin 0.8s linear infinite; }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.cal-spinner {
+  animation: spin 0.8s linear infinite;
+}
 
 // ── Transición ────────────────────────────────────────────────────────────────
 .cal-fade-enter-active {
   transition: opacity 0.28s ease;
 
   .cal-modal {
-    transition: opacity 0.28s ease, transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+    transition:
+      opacity 0.28s ease,
+      transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
   }
 }
 
@@ -740,7 +1021,9 @@ $text-body: rgba(255, 255, 255, 0.7);
   transition: opacity 0.2s ease;
 
   .cal-modal {
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
   }
 }
 
@@ -760,5 +1043,124 @@ $text-body: rgba(255, 255, 255, 0.7);
     opacity: 0;
     transform: scale(0.96) translateY(10px);
   }
+}
+
+// ── Wizard: progreso ──────────────────────────────────────────────────────────
+.cal-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+
+.cal-progress__label {
+  font-family: fonts.$font-accent;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(colors.$BAKANO-PURPLE, 0.85);
+  margin: 0;
+}
+
+.cal-progress__track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.cal-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, colors.$BAKANO-PURPLE, colors.$BAKANO-PINK);
+  border-radius: 99px;
+  transition: width 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+// ── Wizard: navegación ────────────────────────────────────────────────────────
+.cal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 8px 2px;
+  font-family: fonts.$font-interface;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: $text-muted;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover {
+    color: colors.$white;
+  }
+}
+
+.cal-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  font-family: fonts.$font-interface;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: colors.$white;
+  background: linear-gradient(135deg, colors.$BAKANO-PURPLE, colors.$BAKANO-PINK);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.invisible {
+  visibility: hidden;
+}
+
+// ── Wizard: transición entre pasos ────────────────────────────────────────────
+.cal-step-enter-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.cal-step-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.cal-step-enter-from {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+.cal-step-leave-to {
+  opacity: 0;
+  transform: translateX(-12px);
 }
 </style>

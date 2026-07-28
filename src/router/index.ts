@@ -33,13 +33,13 @@ const router = createRouter({
       name: 'funnel',
       component: FunnelView,
       meta: {
-        title: 'Bakano | Aumenta tu facturación entre 10% y 20% — Asesoría Gratuita',
+        title: 'Bakano | Crecimiento para negocios que facturan más de $20k',
         description:
-          'Ayudamos a dueños de negocios establecidos a aumentar su facturación entre un 10% y 20% de forma predecible con la metodología Data Growth Business. Agenda tu asesoría gratuita.',
+          'Ayudamos a dueños y socios de negocios que facturan más de $20,000 al mes a crecer entre un 10% y 20% con la metodología Data Growth Business.',
         canonical: 'https://mkt.bakano.ec/registro-vsl-tr',
         ogTitle: 'Bakano | Aumenta tu facturación entre 10% y 20%',
         ogDescription:
-          'Metodología Data Growth Business: profesionaliza tu marketing y ventas sin depender de la suerte ni de agencias de viralidad. Asesoría gratuita — cupos limitados.',
+          'Metodología Data Growth Business para dueños y socios de negocios que facturan más de $20,000 al mes.',
         ogUrl: 'https://mkt.bakano.ec/registro-vsl-tr',
       } satisfies RouteMeta,
     },
@@ -49,7 +49,8 @@ const router = createRouter({
       component: VideoView,
       meta: {
         title: 'Mira el video | Bakano — Paso 1 de 2',
-        description: 'Ve el video completo y descubre cómo la metodología Data Growth Business puede aumentar la facturación de tu negocio entre un 10% y 20%.',
+        description:
+          'Ve el video completo y descubre cómo la metodología Data Growth Business puede aumentar la facturación de tu negocio entre un 10% y 20%.',
         canonical: 'https://bakano.ec/ver-video',
         ogTitle: 'Mira el video | Bakano',
         ogDescription: 'Ve el video y agenda tu Cita Estratégica gratuita con el equipo de Bakano.',
@@ -62,7 +63,8 @@ const router = createRouter({
       component: BookingView,
       meta: {
         title: 'Agenda tu Cita | Bakano — Paso 2 de 2',
-        description: 'Selecciona el día y hora para tu Cita Estratégica gratuita con el equipo de Bakano.',
+        description:
+          'Selecciona el día y hora para tu Cita Estratégica gratuita con el equipo de Bakano.',
         canonical: 'https://bakano.ec/agendar',
         ogTitle: 'Agenda tu Cita | Bakano',
         ogDescription: 'Elige tu horario y reserva tu Cita Estratégica gratuita con Bakano.',
@@ -75,7 +77,8 @@ const router = createRouter({
       component: BookedView,
       meta: {
         title: 'Cita Confirmada | Bakano',
-        description: 'Tu cita estratégica con el equipo de Bakano está confirmada. Revisa tu correo y prepárate.',
+        description:
+          'Tu cita estratégica con el equipo de Bakano está confirmada. Revisa tu correo y prepárate.',
         canonical: 'https://bakano.ec/cita-confirmada',
         ogTitle: 'Cita Confirmada | Bakano',
         ogDescription: 'Tu cita con el equipo de Bakano está reservada. Te contactaremos pronto.',
@@ -88,10 +91,12 @@ const router = createRouter({
       component: NoSpaceView,
       meta: {
         title: 'Sin Espacio Disponible | Bakano',
-        description: 'En este momento los cupos de asesoría de Bakano están completos. Te notificaremos cuando se libere un espacio.',
+        description:
+          'En este momento los cupos de asesoría de Bakano están completos. Te notificaremos cuando se libere un espacio.',
         canonical: 'https://bakano.ec/sin-espacio',
         ogTitle: 'Sin Espacio Disponible | Bakano',
-        ogDescription: 'Los cupos de asesoría están completos. Te avisaremos cuando haya disponibilidad.',
+        ogDescription:
+          'Los cupos de asesoría están completos. Te avisaremos cuando haya disponibilidad.',
         ogUrl: 'https://bakano.ec/sin-espacio',
       } satisfies RouteMeta,
     },
@@ -101,7 +106,8 @@ const router = createRouter({
       component: PrivacyPolicyView,
       meta: {
         title: 'Política de Privacidad | Bakano Ecuador',
-        description: 'Política de privacidad de Bakano. Información sobre el tratamiento de datos personales conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador.',
+        description:
+          'Política de privacidad de Bakano. Información sobre el tratamiento de datos personales conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador.',
         canonical: 'https://bakano.ec/politicas-privacidad',
         ogTitle: 'Política de Privacidad | Bakano Ecuador',
         ogDescription: 'Política de privacidad de Bakano Ecuador.',
@@ -114,7 +120,8 @@ const router = createRouter({
       component: LegalNoticeView,
       meta: {
         title: 'Aviso Legal | Bakano Ecuador',
-        description: 'Aviso legal de Bakano Ecuador. Términos y condiciones de uso del sitio web bakano.ec.',
+        description:
+          'Aviso legal de Bakano Ecuador. Términos y condiciones de uso del sitio web bakano.ec.',
         canonical: 'https://bakano.ec/aviso-legal',
         ogTitle: 'Aviso Legal | Bakano Ecuador',
         ogDescription: 'Aviso legal de Bakano Ecuador.',
@@ -127,7 +134,8 @@ const router = createRouter({
       component: CalificarView,
       meta: {
         title: 'Califica tu negocio | Bakano',
-        description: 'Descubre si tu negocio califica para una asesoría gratuita con Bakano. Completa el formulario y te asignamos al miembro del equipo ideal.',
+        description:
+          'Descubre si tu negocio califica para una asesoría gratuita con Bakano. Completa el formulario y te asignamos al miembro del equipo ideal.',
         canonical: 'https://bakano.ec/calificar',
         ogTitle: 'Califica tu negocio | Bakano',
         ogDescription: 'Descubre si tu negocio califica para una asesoría gratuita.',
@@ -140,19 +148,31 @@ const router = createRouter({
 // ── SEO dinámico por ruta ──────────────────────────────────────────────────────
 const setMeta = (name: string, content: string) => {
   let el = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`)
-  if (!el) { el = document.createElement('meta'); el.name = name; document.head.appendChild(el) }
+  if (!el) {
+    el = document.createElement('meta')
+    el.name = name
+    document.head.appendChild(el)
+  }
   el.content = content
 }
 
 const setOgMeta = (property: string, content: string) => {
   let el = document.querySelector<HTMLMetaElement>(`meta[property="${property}"]`)
-  if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el) }
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('property', property)
+    document.head.appendChild(el)
+  }
   el.content = content
 }
 
 const setCanonical = (href: string) => {
   let el = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')
-  if (!el) { el = document.createElement('link'); el.rel = 'canonical'; document.head.appendChild(el) }
+  if (!el) {
+    el = document.createElement('link')
+    el.rel = 'canonical'
+    document.head.appendChild(el)
+  }
   el.href = href
 }
 

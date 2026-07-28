@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import BookedHeader from '@/components/booked/BookedHeader.vue';
-import BookedHero from '@/components/booked/BookedHero.vue';
-import BookedSteps from '@/components/booked/BookedSteps.vue';
-import BookedTeam from '@/components/booked/BookedTeam.vue';
-import BookedFooter from '@/components/booked/BookedFooter.vue';
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import BookedHeader from '@/components/booked/BookedHeader.vue'
+import BookedHero from '@/components/booked/BookedHero.vue'
+import BookedSteps from '@/components/booked/BookedSteps.vue'
+import BookedTeam from '@/components/booked/BookedTeam.vue'
+import BookedFooter from '@/components/booked/BookedFooter.vue'
+
+const router = useRouter()
+
+onMounted(() => {
+  const isDev = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  const bookedAt = Number(localStorage.getItem('bk_booked_at'))
+  const hasRecentBooking = bookedAt > 0 && Date.now() - bookedAt < 24 * 60 * 60 * 1000
+  if (!isDev && !hasRecentBooking) router.replace('/')
+})
 
 /**
  * BookedView.vue
@@ -12,26 +22,23 @@ import BookedFooter from '@/components/booked/BookedFooter.vue';
  * Implements premium atmospheric effects and manages data flow.
  */
 
-onMounted(() => {
-  // Meta Pixel — cita confirmada
-  ;(window as any).fbq?.('track', 'CompleteRegistration', { content_name: 'cita-confirmada' })
-})
-
-const LUIS_PHOTO = 'https://res.cloudinary.com/dpuody0df/image/upload/v1775587087/bakano/team/luis.webp';
-const DENISSE_PHOTO = 'https://res.cloudinary.com/dpuody0df/image/upload/v1775587088/bakano/team/denisse.webp';
+const LUIS_PHOTO =
+  'https://res.cloudinary.com/dpuody0df/image/upload/v1775587087/bakano/team/luis.webp'
+const DENISSE_PHOTO =
+  'https://res.cloudinary.com/dpuody0df/image/upload/v1775587088/bakano/team/denisse.webp'
 
 /**
  * Recuperar el nombre del contacto desde localStorage para una experiencia personalizada.
  */
 const contactName = computed(() => {
   try {
-    const stored = localStorage.getItem('bk_contact');
-    if (!stored) return '';
-    return JSON.parse(stored).nombre ?? '';
+    const stored = localStorage.getItem('bk_contact')
+    if (!stored) return ''
+    return JSON.parse(stored).nombre ?? ''
   } catch {
-    return '';
+    return ''
   }
-});
+})
 
 /**
  * Pasos definidos para la sección de post-agendamiento.
@@ -52,7 +59,7 @@ const nextSteps = [
     title: 'Prepara tus métricas',
     body: 'Ten a mano las cifras actuales de tu negocio: facturación, canales de venta y crecimiento reciente.',
   },
-];
+]
 
 /**
  * Equipo de fundadores que lideran las asesorías.
@@ -68,7 +75,7 @@ const team = [
     role: 'Co-fundadora & CMO',
     photo: DENISSE_PHOTO,
   },
-];
+]
 </script>
 
 <template>
@@ -83,16 +90,16 @@ const team = [
 
     <!-- ESTRUCTURA DE COMPONENTES -->
     <BookedHeader />
-    
+
     <div class="booked-view__content">
       <!-- CONTENEDOR CENTRAL: Gestiona el ancho máximo y el padding lateral -->
       <div class="booked-view__container">
         <!-- Sección Hero: Confirmación Visual -->
         <BookedHero :contact-name="contactName" />
-        
+
         <!-- Sección Pasos: Guía de Usuario -->
         <BookedSteps :steps="nextSteps" />
-        
+
         <!-- Sección Equipo: Social Proof Humano -->
         <BookedTeam :team="team" />
 
@@ -134,10 +141,10 @@ const team = [
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background: 
+    background:
       radial-gradient(circle at 10% 20%, rgba(colors.$BAKANO-PURPLE, 0.04) 0%, transparent 50%),
       radial-gradient(circle at 90% 80%, rgba(colors.$BAKANO-PINK, 0.04) 0%, transparent 50%);
-    
+
     .grain-overlay {
       position: absolute;
       inset: 0;
@@ -202,8 +209,10 @@ const team = [
       margin-bottom: 6rem;
       padding: 1.75rem 2.25rem;
       gap: 1.25rem;
-      
-      p { font-size: 0.9rem; }
+
+      p {
+        font-size: 0.9rem;
+      }
     }
   }
 }
@@ -247,9 +256,17 @@ const team = [
 }
 
 @keyframes float-ambient {
-  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-  33% { transform: translate(60px, 40px) scale(1.1) rotate(5deg); }
-  66% { transform: translate(-40px, 80px) scale(0.9) rotate(-3deg); }
-  100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(60px, 40px) scale(1.1) rotate(5deg);
+  }
+  66% {
+    transform: translate(-40px, 80px) scale(0.9) rotate(-3deg);
+  }
+  100% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
 }
 </style>

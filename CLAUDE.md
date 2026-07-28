@@ -28,14 +28,15 @@ Ya **no es un sitio multi-sección**: es un **funnel de una sola página** (VSL 
 ## LocalStorage — claves en uso
 | Clave | Contenido | Quién lo escribe |
 |---|---|---|
-| `bk_contact` | `{ nombre, email, phone, timestamp }` | RegistrationModal + VideoView guard |
+| `bk_contact` | `{ nombre, apellido, negocio, email, telefono, timestamp }` | RegistrationModal + VideoView guard |
+| `bk_qualification` | `{ rol, facturacion, califica, timestamp }` | CalendarModal + CalificarView |
 | `bk_disq_at` | timestamp (ms) | CalendarModal al disqualificar |
 | `bk_booked_at` | timestamp (ms) | BookingView al confirmar cita |
 
 ## Guards de seguridad
 - **FunnelView**: si `bk_disq_at` < 24h → redirige a `/sin-espacio` (desactivado en `localhost`)
 - **VideoView**: si no hay `bk_contact` → overlay bloqueante para capturar contacto (desactivado en `localhost`)
-- **CalendarModal**: `facturación < $10k` OR `objetivo = viral` → `/sin-espacio` + guarda `bk_disq_at`
+- **CalendarModal / CalificarView**: solo califica dueño/socio + facturación mensual superior a $20k + objetivo comercial; el resto va a `/sin-espacio` y guarda `bk_disq_at`
 
 ## GHL Calendar
 - URL: `https://api.leadconnectorhq.com/widget/booking/dtpY2GCQjoOkpm8JUtYz`
@@ -56,7 +57,7 @@ src/
     LegalNoticeView.vue     ← /aviso-legal
   components/
     RegistrationModal.vue   ← Modal de captura (nombre, apellido, email, teléfono, empresa)
-    CalendarModal.vue       ← Modal de calificación 3 preguntas → routing
+    CalendarModal.vue       ← Modal de calificación wizard 6 pasos (auto-avance por radio) → routing
     booked/                 ← Subcomponentes de BookedView
       BookedHeader.vue
       BookedHero.vue        ← Recibe prop :contact-name

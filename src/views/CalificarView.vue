@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
 import { useContactStore } from '@/stores/contact'
-import { getStoredFbParams } from '@/utils/fbclid'
+import { captureFbParams, getStoredFbParams } from '@/utils/fbclid'
+import {
+  REVENUE_LABELS,
+  REVENUE_OPTIONS,
+  ROLE_LABELS,
+  ROLE_OPTIONS,
+  qualifiesAsHighValueLead,
+} from '@/utils/qualification'
 
 const router = useRouter()
 const contactStore = useContactStore()
@@ -12,22 +20,22 @@ const submitting = ref(false)
 const touched = ref(false)
 
 const COUNTRIES = [
-  { dial: '+593', label: '+593 Ecuador' },
-  { dial: '+57', label: '+57 Colombia' },
-  { dial: '+51', label: '+51 Perú' },
-  { dial: '+52', label: '+52 México' },
-  { dial: '+1', label: '+1 EE. UU.' },
-  { dial: '+34', label: '+34 España' },
-  { dial: '+54', label: '+54 Argentina' },
-  { dial: '+56', label: '+56 Chile' },
-  { dial: '+58', label: '+58 Venezuela' },
-  { dial: '+507', label: '+507 Panamá' },
-  { dial: '+502', label: '+502 Guatemala' },
-  { dial: '+506', label: '+506 Costa Rica' },
-  { dial: '+598', label: '+598 Uruguay' },
-  { dial: '+591', label: '+591 Bolivia' },
-  { dial: '+595', label: '+595 Paraguay' },
-  { dial: '+503', label: '+503 El Salvador' },
+  { code: 'EC', dial: '+593', label: '+593 Ecuador' },
+  { code: 'CO', dial: '+57', label: '+57 Colombia' },
+  { code: 'PE', dial: '+51', label: '+51 Perú' },
+  { code: 'MX', dial: '+52', label: '+52 México' },
+  { code: 'US', dial: '+1', label: '+1 EE. UU.' },
+  { code: 'ES', dial: '+34', label: '+34 España' },
+  { code: 'AR', dial: '+54', label: '+54 Argentina' },
+  { code: 'CL', dial: '+56', label: '+56 Chile' },
+  { code: 'VE', dial: '+58', label: '+58 Venezuela' },
+  { code: 'PA', dial: '+507', label: '+507 Panamá' },
+  { code: 'GT', dial: '+502', label: '+502 Guatemala' },
+  { code: 'CR', dial: '+506', label: '+506 Costa Rica' },
+  { code: 'UY', dial: '+598', label: '+598 Uruguay' },
+  { code: 'BO', dial: '+591', label: '+591 Bolivia' },
+  { code: 'PY', dial: '+595', label: '+595 Paraguay' },
+  { code: 'SV', dial: '+503', label: '+503 El Salvador' },
 ]
 
 const contact = ref({
@@ -41,6 +49,7 @@ const contact = ref({
 
 const form = ref({
   vertical: '',
+  rol: '',
   facturacion: '',
   ubicacion: '',
   objetivo: '',
@@ -56,36 +65,35 @@ const verticalLabel: Record<string, string> = {
   servicio: 'Servicio',
 }
 
-const billingOptions = computed(() => {
-  if (form.value.vertical === 'servicio') {
-    return [
-      { value: '<10k', label: 'Menos de $10,000 USD' },
-      { value: '10k-20k', label: 'Entre $10,000 y $20,000 USD' },
-      { value: '>20k', label: 'Más de $20,000 USD' },
-    ]
-  }
-  return [
-    { value: '<15k', label: 'Menos de $15,000 USD' },
-    { value: '15k-30k', label: 'Entre $15,000 y $30,000 USD' },
-    { value: '>30k', label: 'Más de $30,000 USD' },
-  ]
+const normalizedPhone = computed(() => {
+  const country = COUNTRIES.find((item) => item.dial === contact.value.dial)?.code as
+    | CountryCode
+    | undefined
+  const raw = contact.value.telefono.trim()
+  const parsed = raw.startsWith('+')
+    ? parsePhoneNumberFromString(raw)
+    : parsePhoneNumberFromString(raw, country)
+  return parsed?.isValid() ? parsed.format('E.164') : ''
 })
 
-const contactValid = computed(() =>
-  contact.value.nombre.trim().length >= 2 &&
-  contact.value.apellido.trim().length >= 2 &&
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.value.email.trim()) &&
-  contact.value.telefono.trim().length >= 6 &&
-  contact.value.negocio.trim().length >= 2
+const contactValid = computed(
+  () =>
+    contact.value.nombre.trim().length >= 2 &&
+    contact.value.apellido.trim().length >= 2 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.value.email.trim()) &&
+    !!normalizedPhone.value &&
+    contact.value.negocio.trim().length >= 2,
 )
 
-const formValid = computed(() =>
-  !!form.value.vertical &&
-  !!form.value.facturacion &&
-  !!form.value.ubicacion &&
-  !!form.value.objetivo &&
-  wordCount(form.value.mejora) >= 15 &&
-  form.value.consent
+const formValid = computed(
+  () =>
+    !!form.value.vertical &&
+    !!form.value.rol &&
+    !!form.value.facturacion &&
+    !!form.value.ubicacion &&
+    !!form.value.objetivo &&
+    wordCount(form.value.mejora) >= 15 &&
+    form.value.consent,
 )
 
 const canContinue = computed(() => {
@@ -101,61 +109,60 @@ const nextStep = () => {
   }
 }
 
-const qualifies = () => {
-  if (form.value.objetivo === 'viral') return false
-  if (form.value.vertical === 'servicio') {
-    if (form.value.facturacion === '<10k') return false
-  } else {
-    if (form.value.facturacion === '<15k') return false
-  }
-  return true
-}
-
 const handleSubmit = async () => {
   touched.value = true
   if (!formValid.value) return
   submitting.value = true
 
-  const califica = qualifies()
+  const califica = qualifiesAsHighValueLead(
+    form.value.rol,
+    form.value.facturacion,
+    form.value.objetivo,
+  )
 
   // 1 — Webhook de contacto
   const contactPayload = {
     nombre: contact.value.nombre.trim(),
     apellido: contact.value.apellido.trim(),
     email: contact.value.email.trim().toLowerCase(),
-    telefono: `${contact.value.dial} ${contact.value.telefono.trim()}`,
+    telefono: normalizedPhone.value,
     negocio: contact.value.negocio.trim(),
+    empresa: contact.value.negocio.trim(),
     timestamp: new Date().toISOString(),
     event_id: `lead_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    event_name: 'CompleteRegistration',
+    qualification_status: 'pending',
     ...getStoredFbParams(),
   }
 
-  await fetch('https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/acf01034-9790-4a8f-a765-dfe9ae157e2d', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(contactPayload),
-  }).catch(() => {})
+  await fetch(
+    'https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/acf01034-9790-4a8f-a765-dfe9ae157e2d',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(contactPayload),
+    },
+  ).catch(() => {})
+
+  ;(window as any).fbq?.(
+    'track',
+    'CompleteRegistration',
+    { content_name: 'registro-inicial-directo', qualification_status: 'pending' },
+    { eventID: contactPayload.event_id },
+  )
 
   // 2 — Guardar contacto local
   contactStore.save({
     nombre: contact.value.nombre.trim(),
     apellido: contact.value.apellido.trim(),
     email: contact.value.email.trim().toLowerCase(),
-    telefono: `${contact.value.dial} ${contact.value.telefono.trim()}`,
+    telefono: normalizedPhone.value,
     negocio: contact.value.negocio.trim(),
   })
 
   // 3 — Webhook de calificación
   const scheduleEventId = `schedule_${Date.now()}_${Math.random().toString(36).slice(2)}`
 
-  const facturacionLabel: Record<string, string> = {
-    '<10k': 'Menos de $10,000 USD',
-    '10k-20k': 'Entre $10,000 y $20,000 USD',
-    '>20k': 'Más de $20,000 USD',
-    '<15k': 'Menos de $15,000 USD',
-    '15k-30k': 'Entre $15,000 y $30,000 USD',
-    '>30k': 'Más de $30,000 USD',
-  }
   const ubicacionLabel: Record<string, string> = {
     guayaquil: 'Guayaquil / Samborondón',
     otra: 'Otra ciudad / extranjero',
@@ -170,7 +177,9 @@ const handleSubmit = async () => {
     'funnel-bakano',
     'calificar-directo',
     califica ? 'califica' : 'no-califica',
+    califica ? 'lead-calificado-20k' : 'nutricion-sub-20k',
     `vertical-${form.value.vertical}`,
+    `rol-${form.value.rol}`,
     `facturacion-${form.value.facturacion.replace(/[<>]/g, '')}`,
     `ubicacion-${form.value.ubicacion}`,
     `objetivo-${form.value.objetivo}`,
@@ -181,10 +190,11 @@ const handleSubmit = async () => {
 👤 ${contact.value.nombre} ${contact.value.apellido}
 🏢 Negocio: ${contact.value.negocio}
 🏷️ Vertical: ${verticalLabel[form.value.vertical] ?? form.value.vertical}
+Rol: ${ROLE_LABELS[form.value.rol] ?? form.value.rol}
 📧 ${contact.value.email}
-📱 ${contact.value.dial} ${contact.value.telefono}
+📱 ${normalizedPhone.value}
 ━━━━━━━━━━━━━━━━━━━━━━━━
-💰 Facturación: ${facturacionLabel[form.value.facturacion] ?? form.value.facturacion}
+💰 Facturación: ${REVENUE_LABELS[form.value.facturacion] ?? form.value.facturacion}
 📍 Ubicación: ${ubicacionLabel[form.value.ubicacion] ?? form.value.ubicacion}
 🎯 Objetivo: ${objetivoLabel[form.value.objetivo] ?? form.value.objetivo}
 💡 Mejora: ${form.value.mejora}
@@ -198,13 +208,16 @@ const handleSubmit = async () => {
     apellido: contact.value.apellido.trim(),
     negocio: contact.value.negocio.trim(),
     vertical: form.value.vertical,
+    rol: form.value.rol,
     email: contact.value.email.trim().toLowerCase(),
-    telefono: `${contact.value.dial} ${contact.value.telefono.trim()}`,
+    telefono: normalizedPhone.value,
     facturacion: form.value.facturacion,
     ubicacion: form.value.ubicacion,
     objetivo: form.value.objetivo,
     mejora: form.value.mejora,
     califica,
+    qualification_status: califica ? 'qualified_20k_owner' : 'nurture',
+    event_name: califica ? 'Lead' : 'QualificationCompleted',
     resultado: califica ? 'AGENDA' : 'RECHAZADO',
     etiquetas,
     nota,
@@ -213,27 +226,38 @@ const handleSubmit = async () => {
     ...getStoredFbParams(),
   }
 
-  await fetch('https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/69dc0e5f-e2c0-4e9f-9625-10a708787d59', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(qualPayload),
-  }).catch(() => {})
+  await fetch(
+    'https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/69dc0e5f-e2c0-4e9f-9625-10a708787d59',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(qualPayload),
+    },
+  ).catch(() => {})
 
   // 4 — Meta Pixel
-  ;(window as any).fbq?.('track', 'Lead',
-    { content_name: 'cita-estrategica' },
-    { eventID: contactPayload.event_id }
-  )
-  ;(window as any).fbq?.('track', 'CompleteRegistration',
-    { content_name: 'cualificacion-step2', status: califica ? 'califica' : 'no-califica' },
-    { eventID: scheduleEventId }
-  )
   if (califica) {
-    ;(window as any).fbq?.('track', 'Schedule',
-      { content_name: 'cita-estrategica' },
-      { eventID: scheduleEventId }
+    ;(window as any).fbq?.(
+      'track',
+      'Lead',
+      {
+        content_name: 'lead-calificado-20k',
+        role: form.value.rol,
+        revenue_range: form.value.facturacion,
+      },
+      { eventID: scheduleEventId },
     )
   }
+
+  localStorage.setItem(
+    'bk_qualification',
+    JSON.stringify({
+      rol: form.value.rol,
+      facturacion: form.value.facturacion,
+      califica,
+      timestamp: Date.now(),
+    }),
+  )
 
   submitting.value = false
   if (califica) {
@@ -248,27 +272,33 @@ const resetVertical = (v: string) => {
   form.value.vertical = v
   form.value.facturacion = ''
 }
+
+onMounted(captureFbParams)
 </script>
 
 <template>
   <div class="calificar-page">
     <div class="calificar-card">
-
       <!-- Header -->
       <p class="calificar-eyebrow">{{ step === 1 ? 'Paso 1 de 2' : 'Paso 2 de 2' }}</p>
       <h1 class="calificar-title">
         <template v-if="step === 1">
-          Cuéntanos sobre<br>
+          Cuéntanos sobre<br />
           <span class="calificar-accent">tu negocio</span>
         </template>
         <template v-else>
-          Unos datos más<br>
+          Unos datos más<br />
           <span class="calificar-accent">para calificar</span>
         </template>
       </h1>
       <p class="calificar-subtitle">
-        <template v-if="step === 1">Completa tus datos y descubre si tu negocio califica para una asesoría gratuita.</template>
-        <template v-else>5 preguntas rápidas para asignarte al miembro del equipo ideal — 60 segundos.</template>
+        <template v-if="step === 1"
+          >Completa tus datos y descubre si tu negocio califica para una asesoría
+          gratuita.</template
+        >
+        <template v-else
+          >6 preguntas rápidas para confirmar si podemos ayudarte — 60 segundos.</template
+        >
       </p>
 
       <!-- Step progress -->
@@ -283,17 +313,35 @@ const resetVertical = (v: string) => {
         <div class="calificar-row">
           <div class="calificar-field">
             <label for="cal-nombre">Nombre</label>
-            <input id="cal-nombre" v-model="contact.nombre" type="text" placeholder="Juan" autocomplete="given-name" />
+            <input
+              id="cal-nombre"
+              v-model="contact.nombre"
+              type="text"
+              placeholder="Juan"
+              autocomplete="given-name"
+            />
           </div>
           <div class="calificar-field">
             <label for="cal-apellido">Apellido</label>
-            <input id="cal-apellido" v-model="contact.apellido" type="text" placeholder="Pérez" autocomplete="family-name" />
+            <input
+              id="cal-apellido"
+              v-model="contact.apellido"
+              type="text"
+              placeholder="Pérez"
+              autocomplete="family-name"
+            />
           </div>
         </div>
 
         <div class="calificar-field">
           <label for="cal-email">Correo electrónico</label>
-          <input id="cal-email" v-model="contact.email" type="email" placeholder="juan@empresa.com" autocomplete="email" />
+          <input
+            id="cal-email"
+            v-model="contact.email"
+            type="email"
+            placeholder="juan@empresa.com"
+            autocomplete="email"
+          />
         </div>
 
         <div class="calificar-field">
@@ -314,14 +362,27 @@ const resetVertical = (v: string) => {
 
         <div class="calificar-field">
           <label for="cal-negocio">Nombre de la empresa</label>
-          <input id="cal-negocio" v-model="contact.negocio" type="text" placeholder="Mi Empresa S.A." autocomplete="organization" />
+          <input
+            id="cal-negocio"
+            v-model="contact.negocio"
+            type="text"
+            placeholder="Mi Empresa S.A."
+            autocomplete="organization"
+          />
         </div>
 
         <div class="calificar-actions">
           <button type="submit" class="calificar-btn" :disabled="!contactValid">
             CONTINUAR
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="9 18 15 12 9 6"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
         </div>
@@ -329,7 +390,6 @@ const resetVertical = (v: string) => {
 
       <!-- Step 2: Calificación -->
       <form v-else class="calificar-form" @submit.prevent="handleSubmit" novalidate>
-
         <!-- Q0 -->
         <fieldset class="calificar-fieldset">
           <legend class="calificar-legend">
@@ -337,79 +397,127 @@ const resetVertical = (v: string) => {
             ¿Cuál es el rubro de tu negocio?
           </legend>
           <div class="calificar-options">
-            <label v-for="opt in [
-              { value: 'producto', label: 'Producto' },
-              { value: 'gastronomia', label: 'Gastronomía' },
-              { value: 'servicio', label: 'Servicio' },
-            ]" :key="opt.value" class="calificar-option" :class="{ selected: form.vertical === opt.value }">
+            <label
+              v-for="opt in [
+                { value: 'producto', label: 'Producto' },
+                { value: 'gastronomia', label: 'Gastronomía' },
+                { value: 'servicio', label: 'Servicio' },
+              ]"
+              :key="opt.value"
+              class="calificar-option"
+              :class="{ selected: form.vertical === opt.value }"
+            >
               <input type="radio" :value="opt.value" @change="resetVertical(opt.value)" hidden />
               <span class="calificar-radio" aria-hidden="true" />
               <span class="calificar-opt-label">{{ opt.label }}</span>
             </label>
           </div>
-          <span v-if="touched && !form.vertical" class="calificar-error">Selecciona una opción</span>
+          <span v-if="touched && !form.vertical" class="calificar-error"
+            >Selecciona una opción</span
+          >
         </fieldset>
 
         <!-- Q1 -->
         <fieldset class="calificar-fieldset">
           <legend class="calificar-legend">
             <span class="calificar-q">02</span>
-            ¿Cuál es tu facturación mensual actual?
+            ¿Cuál es tu rol en el negocio?
           </legend>
-          <div v-if="!form.vertical" class="calificar-prompt">Selecciona primero el rubro de tu negocio</div>
-          <div v-else class="calificar-options">
-            <label v-for="opt in billingOptions" :key="opt.value" class="calificar-option" :class="{ selected: form.facturacion === opt.value }">
-              <input type="radio" :value="opt.value" v-model="form.facturacion" hidden />
+          <div class="calificar-options">
+            <label
+              v-for="opt in ROLE_OPTIONS"
+              :key="opt.value"
+              class="calificar-option"
+              :class="{ selected: form.rol === opt.value }"
+            >
+              <input type="radio" :value="opt.value" v-model="form.rol" hidden />
               <span class="calificar-radio" aria-hidden="true" />
               <span class="calificar-opt-label">{{ opt.label }}</span>
             </label>
           </div>
-          <span v-if="touched && !form.facturacion" class="calificar-error">Selecciona una opción</span>
+          <span v-if="touched && !form.rol" class="calificar-error">Selecciona una opción</span>
         </fieldset>
 
         <!-- Q2 -->
         <fieldset class="calificar-fieldset">
           <legend class="calificar-legend">
             <span class="calificar-q">03</span>
-            ¿Dónde está tu base de operaciones?
+            ¿Cuál es tu facturación mensual actual?
           </legend>
           <div class="calificar-options">
-            <label v-for="opt in [
-              { value: 'guayaquil', label: 'Guayaquil / Samborondón' },
-              { value: 'otra', label: 'Otra ciudad de Ecuador o el extranjero' },
-            ]" :key="opt.value" class="calificar-option" :class="{ selected: form.ubicacion === opt.value }">
-              <input type="radio" :value="opt.value" v-model="form.ubicacion" hidden />
+            <label
+              v-for="opt in REVENUE_OPTIONS"
+              :key="opt.value"
+              class="calificar-option"
+              :class="{ selected: form.facturacion === opt.value }"
+            >
+              <input type="radio" :value="opt.value" v-model="form.facturacion" hidden />
               <span class="calificar-radio" aria-hidden="true" />
               <span class="calificar-opt-label">{{ opt.label }}</span>
             </label>
           </div>
-          <span v-if="touched && !form.ubicacion" class="calificar-error">Selecciona una opción</span>
+          <span v-if="touched && !form.facturacion" class="calificar-error"
+            >Selecciona una opción</span
+          >
         </fieldset>
 
         <!-- Q3 -->
         <fieldset class="calificar-fieldset">
           <legend class="calificar-legend">
             <span class="calificar-q">04</span>
-            ¿Cuál es tu objetivo principal este año?
+            ¿Dónde está tu base de operaciones?
           </legend>
           <div class="calificar-options">
-            <label v-for="opt in [
-              { value: 'viral', label: 'Aumentar seguidores, likes y hacerme viral' },
-              { value: 'facturacion', label: 'Abrir mercado y aumentar facturación con datos' },
-              { value: 'ventas', label: 'Profesionalizar mi proceso de ventas y captación' },
-            ]" :key="opt.value" class="calificar-option" :class="{ selected: form.objetivo === opt.value }">
-              <input type="radio" :value="opt.value" v-model="form.objetivo" hidden />
+            <label
+              v-for="opt in [
+                { value: 'guayaquil', label: 'Guayaquil / Samborondón' },
+                { value: 'otra', label: 'Otra ciudad de Ecuador o el extranjero' },
+              ]"
+              :key="opt.value"
+              class="calificar-option"
+              :class="{ selected: form.ubicacion === opt.value }"
+            >
+              <input type="radio" :value="opt.value" v-model="form.ubicacion" hidden />
               <span class="calificar-radio" aria-hidden="true" />
               <span class="calificar-opt-label">{{ opt.label }}</span>
             </label>
           </div>
-          <span v-if="touched && !form.objetivo" class="calificar-error">Selecciona una opción</span>
+          <span v-if="touched && !form.ubicacion" class="calificar-error"
+            >Selecciona una opción</span
+          >
         </fieldset>
 
         <!-- Q4 -->
         <fieldset class="calificar-fieldset">
           <legend class="calificar-legend">
             <span class="calificar-q">05</span>
+            ¿Cuál es tu objetivo principal este año?
+          </legend>
+          <div class="calificar-options">
+            <label
+              v-for="opt in [
+                { value: 'viral', label: 'Aumentar seguidores, likes y hacerme viral' },
+                { value: 'facturacion', label: 'Abrir mercado y aumentar facturación con datos' },
+                { value: 'ventas', label: 'Profesionalizar mi proceso de ventas y captación' },
+              ]"
+              :key="opt.value"
+              class="calificar-option"
+              :class="{ selected: form.objetivo === opt.value }"
+            >
+              <input type="radio" :value="opt.value" v-model="form.objetivo" hidden />
+              <span class="calificar-radio" aria-hidden="true" />
+              <span class="calificar-opt-label">{{ opt.label }}</span>
+            </label>
+          </div>
+          <span v-if="touched && !form.objetivo" class="calificar-error"
+            >Selecciona una opción</span
+          >
+        </fieldset>
+
+        <!-- Q5 -->
+        <fieldset class="calificar-fieldset">
+          <legend class="calificar-legend">
+            <span class="calificar-q">06</span>
             ¿Qué quisieras mejorar en tu negocio?
           </legend>
           <div class="calificar-textarea-wrap">
@@ -439,38 +547,73 @@ const resetVertical = (v: string) => {
         <label class="calificar-consent" :class="{ 'has-error': touched && !form.consent }">
           <input type="checkbox" v-model="form.consent" hidden />
           <span class="calificar-consent-box" :class="{ checked: form.consent }" aria-hidden="true">
-            <svg v-if="form.consent" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <polyline points="20 6 9 17 4 12"/>
+            <svg
+              v-if="form.consent"
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+            >
+              <polyline points="20 6 9 17 4 12" />
             </svg>
           </span>
           <span class="calificar-consent-text">
             Consiento que Bakano me contacte para ofrecerme sus servicios y acepto sus
-            <RouterLink to="/politicas-privacidad" target="_blank" class="calificar-link">términos y condiciones</RouterLink>.
+            <RouterLink to="/politicas-privacidad" target="_blank" class="calificar-link"
+              >términos y condiciones</RouterLink
+            >.
           </span>
         </label>
 
         <!-- Actions -->
         <div class="calificar-actions">
           <button type="button" class="calificar-btn calificar-btn--ghost" @click="step = 1">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="15 18 9 12 15 6"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <polyline points="15 18 9 12 15 6" />
             </svg>
             Atrás
           </button>
           <button type="submit" class="calificar-btn" :disabled="submitting">
-            <svg v-if="submitting" class="calificar-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            <svg
+              v-if="submitting"
+              class="calificar-spinner"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
             </svg>
             <template v-else>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             </template>
             {{ submitting ? 'Verificando...' : 'CONFIRMAR Y VER DISPONIBILIDAD' }}
           </button>
         </div>
       </form>
-
     </div>
   </div>
 </template>
@@ -500,8 +643,8 @@ $text-body: rgba(255, 255, 255, 0.7);
   border-radius: 24px;
   padding: 48px 36px 40px;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.03) inset,
-    0 40px 100px rgba(0,0,0,0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 40px 100px rgba(0, 0, 0, 0.8),
     0 0 80px rgba($BAKANO-PURPLE, 0.08);
 
   @media (max-width: 540px) {
@@ -555,8 +698,10 @@ $text-body: rgba(255, 255, 255, 0.7);
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.15);
-  transition: border-color 0.2s, background 0.2s;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 
   &.active {
     border-color: $BAKANO-PURPLE;
@@ -572,7 +717,7 @@ $text-body: rgba(255, 255, 255, 0.7);
 .calificar-step-line {
   flex: 1;
   height: 2px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 1px;
   transition: background 0.3s;
 
@@ -606,14 +751,14 @@ $text-body: rgba(255, 255, 255, 0.7);
     font-family: $font-interface;
     font-size: 0.74rem;
     font-weight: 600;
-    color: rgba(255,255,255,0.55);
+    color: rgba(255, 255, 255, 0.55);
     letter-spacing: 0.5px;
   }
 
   input {
     width: 100%;
     box-sizing: border-box;
-    background: rgba(255,255,255,0.04);
+    background: rgba(255, 255, 255, 0.04);
     border: 1px solid $border;
     border-radius: 10px;
     padding: 11px 14px;
@@ -621,9 +766,13 @@ $text-body: rgba(255, 255, 255, 0.7);
     font-size: 0.92rem;
     color: $white;
     outline: none;
-    transition: border-color 0.2s, background 0.2s;
+    transition:
+      border-color 0.2s,
+      background 0.2s;
 
-    &::placeholder { color: rgba(255,255,255,0.22); }
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.22);
+    }
 
     &:focus {
       border-color: rgba($BAKANO-PURPLE, 0.5);
@@ -634,7 +783,7 @@ $text-body: rgba(255, 255, 255, 0.7);
 
 .calificar-phone-wrap {
   display: flex;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid $border;
   border-radius: 10px;
   overflow: hidden;
@@ -653,7 +802,7 @@ $text-body: rgba(255, 255, 255, 0.7);
   font-family: $font-accent;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   outline: none;
   flex-shrink: 0;
@@ -677,7 +826,9 @@ $text-body: rgba(255, 255, 255, 0.7);
   color: $white;
   outline: none !important;
 
-  &::placeholder { color: rgba(255,255,255,0.22); }
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.22);
+  }
 }
 
 // ── Qualification fields ──────────────────────────────────────────────────────
@@ -695,7 +846,7 @@ $text-body: rgba(255, 255, 255, 0.7);
   font-family: $font-interface;
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -728,9 +879,11 @@ $text-body: rgba(255, 255, 255, 0.7);
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid $border;
-  background: rgba(255,255,255,0.02);
+  background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
-  transition: border-color 0.18s, background 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
 
   &:hover {
     border-color: rgba($BAKANO-PURPLE, 0.3);
@@ -756,7 +909,7 @@ $text-body: rgba(255, 255, 255, 0.7);
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.2);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
   position: relative;
   transition: border-color 0.18s;
@@ -769,7 +922,9 @@ $text-body: rgba(255, 255, 255, 0.7);
     background: linear-gradient(135deg, $BAKANO-PINK, $BAKANO-PURPLE);
     opacity: 0;
     transform: scale(0.4);
-    transition: opacity 0.18s, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+      opacity 0.18s,
+      transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 
@@ -783,7 +938,7 @@ $text-body: rgba(255, 255, 255, 0.7);
 .calificar-prompt {
   font-family: $font-interface;
   font-size: 0.78rem;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255, 255, 255, 0.3);
   font-style: italic;
   padding: 14px 0 4px;
 }
@@ -811,22 +966,28 @@ $text-body: rgba(255, 255, 255, 0.7);
   box-sizing: border-box;
   font-family: $font-secondary;
   font-size: 0.86rem;
-  color: rgba(255,255,255,0.85);
-  background: rgba(255,255,255,0.03);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid $border;
   border-radius: 12px;
   outline: none;
-  transition: border-color 0.18s, background 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
   line-height: 1.55;
 
-  &::placeholder { color: rgba(255,255,255,0.22); }
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.22);
+  }
 
   &:focus {
     border-color: rgba($BAKANO-PURPLE, 0.45);
     background: rgba($BAKANO-PURPLE, 0.04);
   }
 
-  &.error { border-color: rgba(255, 80, 100, 0.3); }
+  &.error {
+    border-color: rgba(255, 80, 100, 0.3);
+  }
 }
 
 .calificar-textarea-footer {
@@ -866,13 +1027,15 @@ $text-body: rgba(255, 255, 255, 0.7);
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  border: 2px solid rgba(255,255,255,0.2);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
   margin-top: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.18s, background 0.18s;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
   color: $white;
 
   &.checked {
@@ -894,7 +1057,9 @@ $text-body: rgba(255, 255, 255, 0.7);
   text-underline-offset: 2px;
   transition: color 0.2s;
 
-  &:hover { color: $BAKANO-PURPLE; }
+  &:hover {
+    color: $BAKANO-PURPLE;
+  }
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────────
@@ -923,7 +1088,10 @@ $text-body: rgba(255, 255, 255, 0.7);
   border-radius: 12px;
   cursor: pointer;
   box-shadow: 0 8px 28px rgba($BAKANO-PURPLE, 0.4);
-  transition: transform 0.2s ease, box-shadow 0.25s ease, opacity 0.2s;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.25s ease,
+    opacity 0.2s;
   text-decoration: none;
 
   &:hover:not(:disabled) {
@@ -931,7 +1099,9 @@ $text-body: rgba(255, 255, 255, 0.7);
     box-shadow: 0 14px 40px rgba($BAKANO-PURPLE, 0.55);
   }
 
-  &:active:not(:disabled) { transform: translateY(0); }
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 
   &:disabled {
     opacity: 0.7;
@@ -946,13 +1116,19 @@ $text-body: rgba(255, 255, 255, 0.7);
     flex: 0 0 auto;
 
     &:hover:not(:disabled) {
-      border-color: rgba(255,255,255,0.2);
+      border-color: rgba(255, 255, 255, 0.2);
       color: $white;
       box-shadow: none;
     }
   }
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-.calificar-spinner { animation: spin 0.8s linear infinite; }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.calificar-spinner {
+  animation: spin 0.8s linear infinite;
+}
 </style>

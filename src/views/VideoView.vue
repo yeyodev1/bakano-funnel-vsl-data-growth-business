@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import { parsePhoneNumberFromString } from 'libphonenumber-js'
 import CalendarModal from '@/components/CalendarModal.vue'
 import { trackStage, generateEventId } from '@/utils/ghl'
 import { useContactStore } from '@/stores/contact'
+import { captureFbParams, getStoredFbParams } from '@/utils/fbclid'
 
 const contactStore = useContactStore()
 
@@ -17,19 +19,38 @@ const captureErrors = ref<Record<string, string>>({})
 const captureTouched = ref<Record<string, boolean>>({})
 const captureSubmitting = ref(false)
 
+const capturePhoneE164 = computed(() => {
+  const raw = captureForm.value.telefono.trim()
+  const parsed = raw.startsWith('+')
+    ? parsePhoneNumberFromString(raw)
+    : parsePhoneNumberFromString(raw, 'EC')
+  return parsed?.isValid() ? parsed.format('E.164') : ''
+})
+
 const validateCapture = () => {
   const e: Record<string, string> = {}
   if (captureForm.value.nombre.trim().length < 2) e.nombre = 'Ingresa tu nombre'
   if (captureForm.value.apellido.trim().length < 2) e.apellido = 'Ingresa tu apellido'
   if (captureForm.value.negocio.trim().length < 2) e.negocio = 'Ingresa el nombre de tu negocio'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(captureForm.value.email.trim())) e.email = 'Email inválido'
-  if (captureForm.value.telefono.trim().length < 7) e.telefono = 'Teléfono inválido'
+  if (!capturePhoneE164.value) e.telefono = 'Teléfono inválido'
   captureErrors.value = e
   return Object.keys(e).length === 0
 }
 
+const touchCapture = (field: keyof typeof captureTouched.value) => {
+  captureTouched.value[field] = true
+  validateCapture()
+}
+
 const submitCapture = async () => {
-  captureTouched.value = { nombre: true, apellido: true, negocio: true, email: true, telefono: true }
+  captureTouched.value = {
+    nombre: true,
+    apellido: true,
+    negocio: true,
+    email: true,
+    telefono: true,
+  }
   if (!validateCapture()) return
   captureSubmitting.value = true
 
@@ -38,7 +59,7 @@ const submitCapture = async () => {
     apellido: captureForm.value.apellido.trim(),
     negocio: captureForm.value.negocio.trim(),
     email: captureForm.value.email.trim().toLowerCase(),
-    telefono: captureForm.value.telefono.trim(),
+    telefono: capturePhoneE164.value,
   })
 
   const c = contactStore.get()
@@ -50,9 +71,18 @@ const submitCapture = async () => {
     email: c.email,
     telefono: c.telefono,
     event_id: leadEventId,
+    event_name: 'CompleteRegistration',
+    qualification_status: 'pending',
+    ...getStoredFbParams(),
   })
-  ;(window as any).fbq?.('track', 'Lead', { content_name: 'video-gate' }, { eventID: leadEventId })
-  await new Promise(r => setTimeout(r, 600))
+  ;(window as any).fbq?.(
+    'track',
+    'CompleteRegistration',
+    { content_name: 'video-gate', qualification_status: 'pending' },
+    { eventID: leadEventId },
+  )
+  await new Promise((r) => setTimeout(r, 600))
+  ;(window as any).fbq?.('track', 'ViewContent', { content_name: 'video-vsl' })
   captureSubmitting.value = false
   captureOpen.value = false
   startTimer()
@@ -83,6 +113,7 @@ const startTimer = () => {
 }
 
 onMounted(() => {
+  captureFbParams()
   const c = contactStore.get()
   const hasContact = !!c.email && !!c.nombre
   if (!IS_DEV && !hasContact) {
@@ -100,7 +131,6 @@ onUnmounted(() => {
 
 <template>
   <div class="vv-page">
-
     <!-- ── Top bar ──────────────────────────────────────────────────────────── -->
     <header class="vv-topbar">
       <img
@@ -112,7 +142,6 @@ onUnmounted(() => {
 
     <!-- ── Main content ─────────────────────────────────────────────────────── -->
     <main class="vv-main">
-
       <!-- Progress stepper -->
       <div class="vv-stepper" aria-label="Paso 1 de 2">
         <span class="vv-stepper__pill">
@@ -130,7 +159,8 @@ onUnmounted(() => {
           <span class="vv-accent">transformar tu negocio</span>
         </h1>
         <p class="vv-subtitle">
-          Ve el video completo. Los siguientes 2 minutos pueden cambiar el rumbo de tu negocio.
+          Este diagnóstico está diseñado para dueños y socios de negocios que facturan más de
+          $20,000 al mes.
         </p>
       </section>
 
@@ -149,7 +179,6 @@ onUnmounted(() => {
 
       <!-- CTA section -->
       <div class="vv-cta-section">
-
         <!-- Lock notice (visible while countdown active) -->
         <Transition name="lock-fade">
           <div v-if="!ctaUnlocked" class="vv-lock-notice">
@@ -169,16 +198,8 @@ onUnmounted(() => {
           :disabled="!ctaUnlocked"
           @click="ctaUnlocked && (calendarOpen = true)"
         >
-          <i
-            v-if="ctaUnlocked"
-            class="fa-solid fa-calendar-check"
-            aria-hidden="true"
-          ></i>
-          <i
-            v-else
-            class="fa-solid fa-lock"
-            aria-hidden="true"
-          ></i>
+          <i v-if="ctaUnlocked" class="fa-solid fa-calendar-check" aria-hidden="true"></i>
+          <i v-else class="fa-solid fa-lock" aria-hidden="true"></i>
           <span v-if="ctaUnlocked">QUIERO AGENDAR MI CITA ESTRATÉGICA AHORA</span>
           <span v-else>QUIERO AGENDAR MI CITA</span>
         </button>
@@ -186,37 +207,39 @@ onUnmounted(() => {
         <!-- Trust line -->
         <p class="vv-trust">
           <i class="fa-solid fa-lock" aria-hidden="true"></i>
-          100% gratuito &middot; Sin compromiso &middot; Cupos limitados
+          Sin costo &middot; Solicitudes sujetas a calificación
         </p>
-
       </div>
-
     </main>
 
     <!-- ── Footer ────────────────────────────────────────────────────────────── -->
     <footer class="vv-footer">
-      <p class="vv-footer__copy">&copy; {{ new Date().getFullYear() }} NEGOCIOS DEL PACIFICO. Todos los derechos reservados.</p>
+      <p class="vv-footer__copy">
+        &copy; {{ new Date().getFullYear() }} NEGOCIOS DEL PACIFICO. Todos los derechos reservados.
+      </p>
       <nav class="vv-footer__links" aria-label="Legal">
-        <RouterLink to="/politicas-privacidad" class="vv-footer__link">Politicas de Privacidad</RouterLink>
+        <RouterLink to="/politicas-privacidad" class="vv-footer__link"
+          >Politicas de Privacidad</RouterLink
+        >
         <span class="vv-footer__sep" aria-hidden="true">&middot;</span>
         <RouterLink to="/aviso-legal" class="vv-footer__link">Aviso Legal</RouterLink>
       </nav>
     </footer>
-
   </div>
 
   <!-- Calendar modal -->
-  <CalendarModal
-    :open="calendarOpen"
-    nombre=""
-    @close="calendarOpen = false"
-  />
+  <CalendarModal :open="calendarOpen" nombre="" @close="calendarOpen = false" />
 
   <!-- ── Contact capture overlay ─────────────────────────────────────────────── -->
   <Transition name="capture-fade">
-    <div v-if="captureOpen" class="cap-overlay" role="dialog" aria-modal="true" aria-labelledby="cap-title">
+    <div
+      v-if="captureOpen"
+      class="cap-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cap-title"
+    >
       <div class="cap-card">
-
         <div class="cap-icon-wrap">
           <i class="fa-solid fa-user-lock cap-icon" aria-hidden="true"></i>
         </div>
@@ -225,9 +248,11 @@ onUnmounted(() => {
         <p class="cap-sub">Lo guardamos para enviarte los recursos de la sesión</p>
 
         <form class="cap-form" @submit.prevent="submitCapture" novalidate>
-
           <div class="cap-row">
-            <div class="cap-field" :class="{ 'cap-field--error': captureTouched.nombre && captureErrors.nombre }">
+            <div
+              class="cap-field"
+              :class="{ 'cap-field--error': captureTouched.nombre && captureErrors.nombre }"
+            >
               <label class="cap-label" for="cap-nombre">Nombre</label>
               <input
                 id="cap-nombre"
@@ -236,12 +261,17 @@ onUnmounted(() => {
                 class="cap-input"
                 placeholder="Tu nombre"
                 autocomplete="given-name"
-                @blur="captureTouched.nombre = true; validateCapture()"
+                @blur="touchCapture('nombre')"
               />
-              <span v-if="captureTouched.nombre && captureErrors.nombre" class="cap-error">{{ captureErrors.nombre }}</span>
+              <span v-if="captureTouched.nombre && captureErrors.nombre" class="cap-error">{{
+                captureErrors.nombre
+              }}</span>
             </div>
 
-            <div class="cap-field" :class="{ 'cap-field--error': captureTouched.apellido && captureErrors.apellido }">
+            <div
+              class="cap-field"
+              :class="{ 'cap-field--error': captureTouched.apellido && captureErrors.apellido }"
+            >
               <label class="cap-label" for="cap-apellido">Apellido</label>
               <input
                 id="cap-apellido"
@@ -250,13 +280,18 @@ onUnmounted(() => {
                 class="cap-input"
                 placeholder="Tu apellido"
                 autocomplete="family-name"
-                @blur="captureTouched.apellido = true; validateCapture()"
+                @blur="touchCapture('apellido')"
               />
-              <span v-if="captureTouched.apellido && captureErrors.apellido" class="cap-error">{{ captureErrors.apellido }}</span>
+              <span v-if="captureTouched.apellido && captureErrors.apellido" class="cap-error">{{
+                captureErrors.apellido
+              }}</span>
             </div>
           </div>
 
-          <div class="cap-field" :class="{ 'cap-field--error': captureTouched.negocio && captureErrors.negocio }">
+          <div
+            class="cap-field"
+            :class="{ 'cap-field--error': captureTouched.negocio && captureErrors.negocio }"
+          >
             <label class="cap-label" for="cap-negocio">Nombre de tu negocio</label>
             <input
               id="cap-negocio"
@@ -265,12 +300,17 @@ onUnmounted(() => {
               class="cap-input"
               placeholder="Ej: Pastelería Nicole"
               autocomplete="organization"
-              @blur="captureTouched.negocio = true; validateCapture()"
+              @blur="touchCapture('negocio')"
             />
-            <span v-if="captureTouched.negocio && captureErrors.negocio" class="cap-error">{{ captureErrors.negocio }}</span>
+            <span v-if="captureTouched.negocio && captureErrors.negocio" class="cap-error">{{
+              captureErrors.negocio
+            }}</span>
           </div>
 
-          <div class="cap-field" :class="{ 'cap-field--error': captureTouched.email && captureErrors.email }">
+          <div
+            class="cap-field"
+            :class="{ 'cap-field--error': captureTouched.email && captureErrors.email }"
+          >
             <label class="cap-label" for="cap-email">Email</label>
             <input
               id="cap-email"
@@ -279,12 +319,17 @@ onUnmounted(() => {
               class="cap-input"
               placeholder="tu@email.com"
               autocomplete="email"
-              @blur="captureTouched.email = true; validateCapture()"
+              @blur="touchCapture('email')"
             />
-            <span v-if="captureTouched.email && captureErrors.email" class="cap-error">{{ captureErrors.email }}</span>
+            <span v-if="captureTouched.email && captureErrors.email" class="cap-error">{{
+              captureErrors.email
+            }}</span>
           </div>
 
-          <div class="cap-field" :class="{ 'cap-field--error': captureTouched.telefono && captureErrors.telefono }">
+          <div
+            class="cap-field"
+            :class="{ 'cap-field--error': captureTouched.telefono && captureErrors.telefono }"
+          >
             <label class="cap-label" for="cap-telefono">Teléfono / WhatsApp</label>
             <input
               id="cap-telefono"
@@ -293,9 +338,11 @@ onUnmounted(() => {
               class="cap-input"
               placeholder="+593 99 999 9999"
               autocomplete="tel"
-              @blur="captureTouched.telefono = true; validateCapture()"
+              @blur="touchCapture('telefono')"
             />
-            <span v-if="captureTouched.telefono && captureErrors.telefono" class="cap-error">{{ captureErrors.telefono }}</span>
+            <span v-if="captureTouched.telefono && captureErrors.telefono" class="cap-error">{{
+              captureErrors.telefono
+            }}</span>
           </div>
 
           <button type="submit" class="cap-submit" :disabled="captureSubmitting">
@@ -303,14 +350,12 @@ onUnmounted(() => {
             <i v-else class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
             <span>{{ captureSubmitting ? 'Un momento...' : 'CONTINUAR AL VIDEO' }}</span>
           </button>
-
         </form>
 
         <p class="cap-privacy">
           <i class="fa-solid fa-lock" aria-hidden="true"></i>
           Tus datos están seguros &middot; No spam
         </p>
-
       </div>
     </div>
   </Transition>
@@ -320,11 +365,11 @@ onUnmounted(() => {
 @use '@/styles/colorVariables.module.scss' as colors;
 @use '@/styles/fonts.modules.scss' as fonts;
 
-$bg:          #0a0712;
-$bg2:         #0f0b1a;
-$border:      rgba(255, 255, 255, 0.07);
-$text-muted:  rgba(255, 255, 255, 0.38);
-$text-body:   rgba(255, 255, 255, 0.68);
+$bg: #0a0712;
+$bg2: #0f0b1a;
+$border: rgba(255, 255, 255, 0.07);
+$text-muted: rgba(255, 255, 255, 0.38);
+$text-body: rgba(255, 255, 255, 0.68);
 
 // ── Page shell ────────────────────────────────────────────────────────────────
 .vv-page {
@@ -543,9 +588,15 @@ $text-body:   rgba(255, 255, 255, 0.68);
   border: none;
   border-radius: 12px;
   cursor: not-allowed;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.3s ease, opacity 0.25s;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.3s ease,
+    opacity 0.25s;
 
-  i { font-size: 1rem; }
+  i {
+    font-size: 1rem;
+  }
 
   // Locked state
   &--locked {
@@ -554,7 +605,9 @@ $text-body:   rgba(255, 255, 255, 0.68);
     color: rgba(255, 255, 255, 0.28);
     cursor: not-allowed;
 
-    i { color: rgba(255, 255, 255, 0.2); }
+    i {
+      color: rgba(255, 255, 255, 0.2);
+    }
   }
 
   // Active / unlocked state
@@ -581,8 +634,17 @@ $text-body:   rgba(255, 255, 255, 0.68);
 }
 
 @keyframes cta-pulse {
-  0%, 100% { box-shadow: 0 8px 32px rgba(colors.$BAKANO-PINK, 0.35), 0 2px 8px rgba(0,0,0,0.4); }
-  50%       { box-shadow: 0 10px 44px rgba(colors.$BAKANO-PINK, 0.55), 0 2px 8px rgba(0,0,0,0.4); }
+  0%,
+  100% {
+    box-shadow:
+      0 8px 32px rgba(colors.$BAKANO-PINK, 0.35),
+      0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 10px 44px rgba(colors.$BAKANO-PINK, 0.55),
+      0 2px 8px rgba(0, 0, 0, 0.4);
+  }
 }
 
 // Trust line
@@ -595,12 +657,16 @@ $text-body:   rgba(255, 255, 255, 0.68);
   gap: 7px;
   margin: 0;
 
-  i { font-size: 0.65rem; }
+  i {
+    font-size: 0.65rem;
+  }
 }
 
 // Lock notice transition
 .lock-fade-leave-active {
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
 }
 .lock-fade-leave-to {
   opacity: 0;
@@ -638,7 +704,9 @@ $text-body:   rgba(255, 255, 255, 0.68);
   text-decoration: none;
   transition: color 0.2s;
 
-  &:hover { color: rgba(255, 255, 255, 0.6); }
+  &:hover {
+    color: rgba(255, 255, 255, 0.6);
+  }
 }
 
 .vv-footer__sep {
@@ -766,10 +834,14 @@ $text-body:   rgba(255, 255, 255, 0.68);
   font-family: fonts.$font-secondary;
   font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
   box-sizing: border-box;
 
-  &::placeholder { color: rgba(255, 255, 255, 0.22); }
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.22);
+  }
 
   &:focus {
     border-color: rgba(colors.$BAKANO-PURPLE, 0.55);
@@ -801,17 +873,24 @@ $text-body:   rgba(255, 255, 255, 0.68);
   letter-spacing: 1.5px;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s;
   box-shadow: 0 8px 28px rgba(colors.$BAKANO-PINK, 0.35);
 
-  i { font-size: 0.95rem; }
+  i {
+    font-size: 0.95rem;
+  }
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 12px 36px rgba(colors.$BAKANO-PINK, 0.5);
   }
 
-  &:active:not(:disabled) { transform: translateY(0); }
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 
   &:disabled {
     opacity: 0.7;
@@ -828,7 +907,9 @@ $text-body:   rgba(255, 255, 255, 0.68);
   align-items: center;
   gap: 6px;
 
-  i { font-size: 0.62rem; }
+  i {
+    font-size: 0.62rem;
+  }
 }
 
 // Overlay transition

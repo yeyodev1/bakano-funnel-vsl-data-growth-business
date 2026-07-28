@@ -1,49 +1,107 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { parsePhoneNumberFromString, getCountries, getCountryCallingCode, AsYouType } from 'libphonenumber-js'
+import {
+  parsePhoneNumberFromString,
+  getCountries,
+  getCountryCallingCode,
+  AsYouType,
+} from 'libphonenumber-js'
 import { useRouter } from 'vue-router'
 import { getStoredFbParams } from '@/utils/fbclid'
+import { useContactStore } from '@/stores/contact'
 const router = useRouter()
+const contactStore = useContactStore()
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 // ── Países con emoji flag ─────────────────────────────────────────────────────
-interface Country { code: string; name: string; dial: string; flag: string }
-
-const flagEmoji = (code: string) =>
-  [...code.toUpperCase()].map(c => String.fromCodePoint(0x1f1e6 - 65 + c.charCodeAt(0))).join('')
-
-// Lista curada: LATAM primero, luego resto
-const PRIORITY = ['EC', 'CO', 'PE', 'MX', 'AR', 'CL', 'VE', 'BO', 'PY', 'UY', 'GT', 'HN', 'SV', 'CR', 'PA', 'DO', 'CU', 'US', 'ES']
-
-const nameMap: Record<string, string> = {
-  EC: 'Ecuador', CO: 'Colombia', PE: 'Perú', MX: 'México', AR: 'Argentina',
-  CL: 'Chile', VE: 'Venezuela', BO: 'Bolivia', PY: 'Paraguay', UY: 'Uruguay',
-  GT: 'Guatemala', HN: 'Honduras', SV: 'El Salvador', CR: 'Costa Rica',
-  PA: 'Panamá', DO: 'Rep. Dominicana', CU: 'Cuba', US: 'Estados Unidos',
-  ES: 'España', BR: 'Brasil', PT: 'Portugal', FR: 'Francia', DE: 'Alemania',
-  IT: 'Italia', GB: 'Reino Unido', CA: 'Canadá', AU: 'Australia', JP: 'Japón',
-  CN: 'China', IN: 'India',
+interface Country {
+  code: string
+  name: string
+  dial: string
+  flag: string
 }
 
-const allCountries: Country[] = getCountries()
-  .map(code => ({
-    code,
-    name: nameMap[code] ?? code,
-    dial: '+' + getCountryCallingCode(code),
-    flag: flagEmoji(code),
-  }))
+const flagEmoji = (code: string) =>
+  [...code.toUpperCase()].map((c) => String.fromCodePoint(0x1f1e6 - 65 + c.charCodeAt(0))).join('')
 
-const priorityList = PRIORITY
-  .map(code => allCountries.find(c => c.code === code))
-  .filter(Boolean) as Country[]
+// Lista curada: LATAM primero, luego resto
+const PRIORITY = [
+  'EC',
+  'CO',
+  'PE',
+  'MX',
+  'AR',
+  'CL',
+  'VE',
+  'BO',
+  'PY',
+  'UY',
+  'GT',
+  'HN',
+  'SV',
+  'CR',
+  'PA',
+  'DO',
+  'CU',
+  'US',
+  'ES',
+]
+
+const nameMap: Record<string, string> = {
+  EC: 'Ecuador',
+  CO: 'Colombia',
+  PE: 'Perú',
+  MX: 'México',
+  AR: 'Argentina',
+  CL: 'Chile',
+  VE: 'Venezuela',
+  BO: 'Bolivia',
+  PY: 'Paraguay',
+  UY: 'Uruguay',
+  GT: 'Guatemala',
+  HN: 'Honduras',
+  SV: 'El Salvador',
+  CR: 'Costa Rica',
+  PA: 'Panamá',
+  DO: 'Rep. Dominicana',
+  CU: 'Cuba',
+  US: 'Estados Unidos',
+  ES: 'España',
+  BR: 'Brasil',
+  PT: 'Portugal',
+  FR: 'Francia',
+  DE: 'Alemania',
+  IT: 'Italia',
+  GB: 'Reino Unido',
+  CA: 'Canadá',
+  AU: 'Australia',
+  JP: 'Japón',
+  CN: 'China',
+  IN: 'India',
+}
+
+const allCountries: Country[] = getCountries().map((code) => ({
+  code,
+  name: nameMap[code] ?? code,
+  dial: '+' + getCountryCallingCode(code),
+  flag: flagEmoji(code),
+}))
+
+const priorityList = PRIORITY.map((code) => allCountries.find((c) => c.code === code)).filter(
+  Boolean,
+) as Country[]
 
 const otherList = allCountries
-  .filter(c => !PRIORITY.includes(c.code))
+  .filter((c) => !PRIORITY.includes(c.code))
   .sort((a, b) => a.name.localeCompare(b.name))
 
-const countries = [...priorityList, { code: '---', name: '─────────', dial: '', flag: '' }, ...otherList]
+const countries = [
+  ...priorityList,
+  { code: '---', name: '─────────', dial: '', flag: '' },
+  ...otherList,
+]
 
 // ── Estado del formulario ─────────────────────────────────────────────────────
 const selectedCountry = ref<Country>(priorityList[0])
@@ -83,11 +141,11 @@ const parsedPhoneE164 = computed(() => {
 
 // ── Validaciones ──────────────────────────────────────────────────────────────
 const validators: Record<string, (v: string) => string | null> = {
-  nombre: v => v.trim().length < 2 ? 'Ingresa tu nombre' : null,
-  apellido: v => v.trim().length < 2 ? 'Ingresa tu apellido' : null,
-  email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? null : 'Email inválido',
-  phone: () => phoneValid.value ? null : 'Número inválido para el país seleccionado',
-  empresa: v => v.trim().length < 2 ? 'Ingresa el nombre de tu empresa' : null,
+  nombre: (v) => (v.trim().length < 2 ? 'Ingresa tu nombre' : null),
+  apellido: (v) => (v.trim().length < 2 ? 'Ingresa tu apellido' : null),
+  email: (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? null : 'Email inválido'),
+  phone: () => (phoneValid.value ? null : 'Número inválido para el país seleccionado'),
+  empresa: (v) => (v.trim().length < 2 ? 'Ingresa el nombre de tu empresa' : null),
 }
 
 const validate = () => {
@@ -116,8 +174,10 @@ const onPhoneInput = (e: Event) => {
 const filteredCountries = computed(() => {
   const q = countrySearch.value.toLowerCase()
   if (!q) return countries
-  return countries.filter(c =>
-    c.code !== '---' && (c.name.toLowerCase().includes(q) || c.dial.includes(q) || c.code.toLowerCase().includes(q))
+  return countries.filter(
+    (c) =>
+      c.code !== '---' &&
+      (c.name.toLowerCase().includes(q) || c.dial.includes(q) || c.code.toLowerCase().includes(q)),
   )
 })
 
@@ -154,30 +214,38 @@ const handleSubmit = async () => {
     pais: selectedCountry.value.name,
     timestamp: new Date().toISOString(),
     event_id: leadEventId,
+    event_name: 'CompleteRegistration',
+    qualification_status: 'pending',
     ...getStoredFbParams(),
   }
 
   console.info('[Bakano Registro]', payload)
 
-  await fetch('https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/acf01034-9790-4a8f-a765-dfe9ae157e2d', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).catch(() => {})
+  await fetch(
+    'https://services.leadconnectorhq.com/hooks/pEFChujwCCaMWBNbZYD1/webhook-trigger/acf01034-9790-4a8f-a765-dfe9ae157e2d',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  ).catch(() => {})
 
-  // Meta Pixel — evento Lead (deduplicado con CAPI via event_id)
-  ;(window as any).fbq?.('track', 'Lead',
-    { content_name: 'cita-estrategica' },
-    { eventID: leadEventId }
+  // El contacto inicial todavía no es un lead calificado.
+  ;(window as any).fbq?.(
+    'track',
+    'CompleteRegistration',
+    { content_name: 'registro-inicial' },
+    { eventID: leadEventId },
   )
 
   submitting.value = false
-  localStorage.setItem('bk_contact', JSON.stringify({
+  contactStore.save({
     nombre: form.value.nombre.trim(),
+    apellido: form.value.apellido.trim(),
+    negocio: form.value.empresa.trim(),
     email: form.value.email.trim().toLowerCase(),
-    phone: parsedPhoneE164.value,
-    timestamp: Date.now(),
-  }))
+    telefono: parsedPhoneE164.value,
+  })
   emit('close')
   router.push('/ver-video')
 }
@@ -187,9 +255,12 @@ const onKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') emit('close')
 }
 
-watch(() => props.open, (val) => {
-  document.body.style.overflow = val ? 'hidden' : ''
-})
+watch(
+  () => props.open,
+  (val) => {
+    document.body.style.overflow = val ? 'hidden' : ''
+  },
+)
 
 onMounted(() => {
   document.addEventListener('mousedown', handleClickOutside)
@@ -202,9 +273,12 @@ onUnmounted(() => {
   document.body.style.overflow = ''
 })
 
-watch(dropdownOpen, open => {
+watch(dropdownOpen, (open) => {
   if (open) {
-    setTimeout(() => document.querySelector<HTMLInputElement>('.rmodal__country-search')?.focus(), 50)
+    setTimeout(
+      () => document.querySelector<HTMLInputElement>('.rmodal__country-search')?.focus(),
+      50,
+    )
   }
 })
 </script>
@@ -212,184 +286,270 @@ watch(dropdownOpen, open => {
 <template>
   <Teleport to="body">
     <Transition name="rmodal-fade">
-      <div v-if="props.open" class="rmodal-overlay" @click.self="$emit('close')" role="dialog" aria-modal="true" aria-labelledby="rmodal-title">
-
+      <div
+        v-if="props.open"
+        class="rmodal-overlay"
+        @click.self="$emit('close')"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rmodal-title"
+      >
         <div class="rmodal">
-
           <!-- Close -->
           <button class="rmodal__close" @click="$emit('close')" aria-label="Cerrar">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
 
           <!-- ── FORMULARIO ─────────────────────────────────── -->
-            <p class="rmodal__eyebrow">Asesoría gratuita</p>
-            <h2 id="rmodal-title" class="rmodal__title">Agenda tu sesión<br><span class="rmodal__title-accent">sin costo</span></h2>
-            <p class="rmodal__subtitle">Cupos limitados — completa tus datos y te contactamos.</p>
+          <p class="rmodal__eyebrow">Diagnóstico estratégico</p>
+          <h2 id="rmodal-title" class="rmodal__title">
+            Solicita tu evaluación<br /><span class="rmodal__title-accent">sin costo</span>
+          </h2>
+          <p class="rmodal__subtitle">
+            Para dueños y socios de negocios que facturan más de $20,000 al mes.
+          </p>
 
-            <form class="rmodal__form" @submit.prevent="handleSubmit" novalidate>
-
-              <!-- Nombre + Apellido -->
-              <div class="rmodal__row">
-                <div class="rmodal__field" :class="{ 'has-error': touched.nombre && errors.nombre }">
-                  <label for="r-nombre">Nombre</label>
-                  <input
-                    id="r-nombre"
-                    v-model="form.nombre"
-                    type="text"
-                    placeholder="Juan"
-                    autocomplete="given-name"
-                    @blur="onBlur('nombre')"
-                  />
-                  <span v-if="touched.nombre && errors.nombre" class="rmodal__error">{{ errors.nombre }}</span>
-                </div>
-
-                <div class="rmodal__field" :class="{ 'has-error': touched.apellido && errors.apellido }">
-                  <label for="r-apellido">Apellido</label>
-                  <input
-                    id="r-apellido"
-                    v-model="form.apellido"
-                    type="text"
-                    placeholder="Pérez"
-                    autocomplete="family-name"
-                    @blur="onBlur('apellido')"
-                  />
-                  <span v-if="touched.apellido && errors.apellido" class="rmodal__error">{{ errors.apellido }}</span>
-                </div>
-              </div>
-
-              <!-- Email -->
-              <div class="rmodal__field" :class="{ 'has-error': touched.email && errors.email }">
-                <label for="r-email">Correo electrónico</label>
+          <form class="rmodal__form" @submit.prevent="handleSubmit" novalidate>
+            <!-- Nombre + Apellido -->
+            <div class="rmodal__row">
+              <div class="rmodal__field" :class="{ 'has-error': touched.nombre && errors.nombre }">
+                <label for="r-nombre">Nombre</label>
                 <input
-                  id="r-email"
-                  v-model="form.email"
-                  type="email"
-                  placeholder="juan@empresa.com"
-                  autocomplete="email"
-                  @blur="onBlur('email')"
+                  id="r-nombre"
+                  v-model="form.nombre"
+                  type="text"
+                  placeholder="Juan"
+                  autocomplete="given-name"
+                  @blur="onBlur('nombre')"
                 />
-                <span v-if="touched.email && errors.email" class="rmodal__error">{{ errors.email }}</span>
+                <span v-if="touched.nombre && errors.nombre" class="rmodal__error">{{
+                  errors.nombre
+                }}</span>
               </div>
 
-              <!-- Teléfono con selector de país -->
-              <div class="rmodal__field" :class="{ 'has-error': touched.phone && errors.phone }">
-                <label>Teléfono</label>
-                <div class="rmodal__phone-wrap">
+              <div
+                class="rmodal__field"
+                :class="{ 'has-error': touched.apellido && errors.apellido }"
+              >
+                <label for="r-apellido">Apellido</label>
+                <input
+                  id="r-apellido"
+                  v-model="form.apellido"
+                  type="text"
+                  placeholder="Pérez"
+                  autocomplete="family-name"
+                  @blur="onBlur('apellido')"
+                />
+                <span v-if="touched.apellido && errors.apellido" class="rmodal__error">{{
+                  errors.apellido
+                }}</span>
+              </div>
+            </div>
 
-                  <!-- Selector de país -->
-                  <button
-                    type="button"
-                    class="rmodal__country-trigger"
-                    :aria-expanded="dropdownOpen"
-                    aria-haspopup="listbox"
-                    @click="dropdownOpen = !dropdownOpen"
+            <!-- Email -->
+            <div class="rmodal__field" :class="{ 'has-error': touched.email && errors.email }">
+              <label for="r-email">Correo electrónico</label>
+              <input
+                id="r-email"
+                v-model="form.email"
+                type="email"
+                placeholder="juan@empresa.com"
+                autocomplete="email"
+                @blur="onBlur('email')"
+              />
+              <span v-if="touched.email && errors.email" class="rmodal__error">{{
+                errors.email
+              }}</span>
+            </div>
+
+            <!-- Teléfono con selector de país -->
+            <div class="rmodal__field" :class="{ 'has-error': touched.phone && errors.phone }">
+              <label>Teléfono</label>
+              <div class="rmodal__phone-wrap">
+                <!-- Selector de país -->
+                <button
+                  type="button"
+                  class="rmodal__country-trigger"
+                  :aria-expanded="dropdownOpen"
+                  aria-haspopup="listbox"
+                  @click="dropdownOpen = !dropdownOpen"
+                >
+                  <span class="rmodal__flag">{{ selectedCountry.flag }}</span>
+                  <span class="rmodal__dial">{{ selectedCountry.dial }}</span>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    class="rmodal__chevron"
+                    :class="{ open: dropdownOpen }"
                   >
-                    <span class="rmodal__flag">{{ selectedCountry.flag }}</span>
-                    <span class="rmodal__dial">{{ selectedCountry.dial }}</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="rmodal__chevron" :class="{ open: dropdownOpen }">
-                      <polyline points="6 9 12 15 18 9"/>
-                    </svg>
-                  </button>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
 
-                  <!-- Dropdown -->
-                  <Transition name="dropdown">
-                    <div v-if="dropdownOpen" class="rmodal__country-dropdown" role="listbox">
-                      <input
-                        type="text"
-                        class="rmodal__country-search"
-                        v-model="countrySearch"
-                        placeholder="Buscar país..."
-                        aria-label="Buscar país"
-                      />
-                      <ul>
-                        <li
-                          v-for="c in filteredCountries"
-                          :key="c.code"
-                          :class="['rmodal__country-item', { separator: c.code === '---', active: c.code === selectedCountry.code }]"
-                          role="option"
-                          :aria-selected="c.code === selectedCountry.code"
-                          @click="selectCountry(c)"
-                        >
-                          <template v-if="c.code !== '---'">
-                            <span class="rmodal__flag">{{ c.flag }}</span>
-                            <span class="rmodal__country-name">{{ c.name }}</span>
-                            <span class="rmodal__country-dial">{{ c.dial }}</span>
-                          </template>
-                          <template v-else>
-                            <span class="rmodal__sep-line" aria-hidden="true" />
-                          </template>
-                        </li>
-                      </ul>
-                    </div>
-                  </Transition>
+                <!-- Dropdown -->
+                <Transition name="dropdown">
+                  <div v-if="dropdownOpen" class="rmodal__country-dropdown" role="listbox">
+                    <input
+                      type="text"
+                      class="rmodal__country-search"
+                      v-model="countrySearch"
+                      placeholder="Buscar país..."
+                      aria-label="Buscar país"
+                    />
+                    <ul>
+                      <li
+                        v-for="c in filteredCountries"
+                        :key="c.code"
+                        :class="[
+                          'rmodal__country-item',
+                          { separator: c.code === '---', active: c.code === selectedCountry.code },
+                        ]"
+                        role="option"
+                        :aria-selected="c.code === selectedCountry.code"
+                        @click="selectCountry(c)"
+                      >
+                        <template v-if="c.code !== '---'">
+                          <span class="rmodal__flag">{{ c.flag }}</span>
+                          <span class="rmodal__country-name">{{ c.name }}</span>
+                          <span class="rmodal__country-dial">{{ c.dial }}</span>
+                        </template>
+                        <template v-else>
+                          <span class="rmodal__sep-line" aria-hidden="true" />
+                        </template>
+                      </li>
+                    </ul>
+                  </div>
+                </Transition>
 
-                  <!-- Input numérico -->
-                  <input
-                    class="rmodal__phone-input"
-                    type="tel"
-                    :value="form.phone"
-                    placeholder="98 493 4039"
-                    autocomplete="tel-national"
-                    inputmode="tel"
-                    @input="onPhoneInput"
-                    @blur="onBlur('phone')"
-                  />
+                <!-- Input numérico -->
+                <input
+                  class="rmodal__phone-input"
+                  type="tel"
+                  :value="form.phone"
+                  placeholder="98 493 4039"
+                  autocomplete="tel-national"
+                  inputmode="tel"
+                  @input="onPhoneInput"
+                  @blur="onBlur('phone')"
+                />
 
-                  <!-- Indicador de validez -->
-                  <span class="rmodal__phone-status" :class="{ valid: phoneValid, invalid: touched.phone && !phoneValid && form.phone }" aria-hidden="true">
-                    <svg v-if="phoneValid" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                    <svg v-else-if="touched.phone && !phoneValid && form.phone" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </span>
-
-                </div>
-                <span v-if="touched.phone && errors.phone" class="rmodal__error">{{ errors.phone }}</span>
-                <span v-if="phoneValid && parsedPhoneE164" class="rmodal__phone-preview">
-                  {{ selectedCountry.flag }} {{ selectedCountry.dial }} {{ formattedPhone }} · E.164: {{ parsedPhoneE164 }}
+                <!-- Indicador de validez -->
+                <span
+                  class="rmodal__phone-status"
+                  :class="{
+                    valid: phoneValid,
+                    invalid: touched.phone && !phoneValid && form.phone,
+                  }"
+                  aria-hidden="true"
+                >
+                  <svg
+                    v-if="phoneValid"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <svg
+                    v-else-if="touched.phone && !phoneValid && form.phone"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
                 </span>
               </div>
+              <span v-if="touched.phone && errors.phone" class="rmodal__error">{{
+                errors.phone
+              }}</span>
+              <span v-if="phoneValid && parsedPhoneE164" class="rmodal__phone-preview">
+                {{ selectedCountry.flag }} {{ selectedCountry.dial }} {{ formattedPhone }} · E.164:
+                {{ parsedPhoneE164 }}
+              </span>
+            </div>
 
-              <!-- Empresa -->
-              <div class="rmodal__field" :class="{ 'has-error': touched.empresa && errors.empresa }">
-                <label for="r-empresa">Nombre de la empresa</label>
-                <input
-                  id="r-empresa"
-                  v-model="form.empresa"
-                  type="text"
-                  placeholder="Mi Empresa S.A."
-                  autocomplete="organization"
-                  @blur="onBlur('empresa')"
-                />
-                <span v-if="touched.empresa && errors.empresa" class="rmodal__error">{{ errors.empresa }}</span>
-              </div>
+            <!-- Empresa -->
+            <div class="rmodal__field" :class="{ 'has-error': touched.empresa && errors.empresa }">
+              <label for="r-empresa">Nombre de la empresa</label>
+              <input
+                id="r-empresa"
+                v-model="form.empresa"
+                type="text"
+                placeholder="Mi Empresa S.A."
+                autocomplete="organization"
+                @blur="onBlur('empresa')"
+              />
+              <span v-if="touched.empresa && errors.empresa" class="rmodal__error">{{
+                errors.empresa
+              }}</span>
+            </div>
 
-              <!-- Submit -->
-              <button class="rmodal__submit" type="submit" :disabled="submitting">
-                <svg v-if="submitting" class="rmodal__spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            <!-- Submit -->
+            <button class="rmodal__submit" type="submit" :disabled="submitting">
+              <svg
+                v-if="submitting"
+                class="rmodal__spinner"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+              <template v-else>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <template v-else>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </template>
-                {{ submitting ? 'Enviando...' : 'REGISTRARME A LA ASESORÍA' }}
-              </button>
+              </template>
+              {{ submitting ? 'Enviando...' : 'CONTINUAR CON MI SOLICITUD' }}
+            </button>
 
-              <p class="rmodal__legal">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                100% gratuito · Sin compromiso · Tus datos están seguros
-              </p>
-
-            </form>
-
+            <p class="rmodal__legal">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Solicitudes sujetas a calificación · Tus datos están seguros
+            </p>
+          </form>
         </div>
       </div>
     </Transition>
@@ -431,8 +591,8 @@ $text-body: rgba(255, 255, 255, 0.72);
   border-radius: 24px;
   padding: 48px 40px 40px;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.03) inset,
-    0 40px 100px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 40px 100px rgba(0, 0, 0, 0.7),
     0 0 80px rgba(colors.$BAKANO-PINK, 0.05);
   max-height: 92vh;
   overflow-y: auto;
@@ -452,13 +612,16 @@ $text-body: rgba(255, 255, 255, 0.72);
   height: 36px;
   border-radius: 50%;
   border: 1px solid $border;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   color: $text-muted;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s,
+    background 0.2s;
 
   &:hover {
     border-color: rgba(colors.$BAKANO-PINK, 0.4);
@@ -528,7 +691,7 @@ $text-body: rgba(255, 255, 255, 0.72);
     font-family: fonts.$font-interface;
     font-size: 0.74rem;
     font-weight: 600;
-    color: rgba(255,255,255,0.55);
+    color: rgba(255, 255, 255, 0.55);
     letter-spacing: 0.5px;
   }
 
@@ -543,9 +706,14 @@ $text-body: rgba(255, 255, 255, 0.72);
     font-size: 0.92rem;
     color: colors.$white;
     outline: none;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    transition:
+      border-color 0.2s,
+      background 0.2s,
+      box-shadow 0.2s;
 
-    &::placeholder { color: rgba(255,255,255,0.22); }
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.22);
+    }
 
     &:focus {
       border-color: rgba(colors.$BAKANO-PINK, 0.5);
@@ -575,7 +743,9 @@ $text-body: rgba(255, 255, 255, 0.72);
   border: 1px solid $border;
   border-radius: 10px;
   overflow: visible;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 
   &:focus-within {
     border-color: rgba(colors.$BAKANO-PINK, 0.5);
@@ -603,7 +773,7 @@ $text-body: rgba(255, 255, 255, 0.72);
   border-radius: 10px 0 0 10px;
 
   &:hover {
-    background: rgba(255,255,255,0.04);
+    background: rgba(255, 255, 255, 0.04);
   }
 }
 
@@ -616,7 +786,7 @@ $text-body: rgba(255, 255, 255, 0.72);
   font-family: fonts.$font-accent;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .rmodal__chevron {
@@ -639,9 +809,9 @@ $text-body: rgba(255, 255, 255, 0.72);
   max-height: 240px;
   overflow: hidden;
   background: #16111f;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
 
@@ -654,16 +824,18 @@ $text-body: rgba(255, 255, 255, 0.72);
   width: 100%;
   box-sizing: border-box;
   padding: 10px 14px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255, 255, 255, 0.04);
   border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   color: colors.$white;
   font-family: fonts.$font-secondary;
   font-size: 0.84rem;
   outline: none;
   border-radius: 12px 12px 0 0;
 
-  &::placeholder { color: rgba(255,255,255,0.25); }
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+  }
 }
 
 .rmodal__country-dropdown ul {
@@ -673,9 +845,16 @@ $text-body: rgba(255, 255, 255, 0.72);
   overflow-y: auto;
   max-height: 190px;
 
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 99px;
+  }
 }
 
 .rmodal__country-item {
@@ -705,13 +884,13 @@ $text-body: rgba(255, 255, 255, 0.72);
   display: block;
   height: 1px;
   width: 100%;
-  background: rgba(255,255,255,0.07);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .rmodal__country-name {
   font-family: fonts.$font-secondary;
   font-size: 0.82rem;
-  color: rgba(255,255,255,0.75);
+  color: rgba(255, 255, 255, 0.75);
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -721,7 +900,7 @@ $text-body: rgba(255, 255, 255, 0.72);
 .rmodal__country-dial {
   font-family: fonts.$font-accent;
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255, 255, 255, 0.35);
   flex-shrink: 0;
 }
 
@@ -739,7 +918,9 @@ $text-body: rgba(255, 255, 255, 0.72);
   outline: none !important;
   box-shadow: none !important;
 
-  &::placeholder { color: rgba(255,255,255,0.22); }
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.22);
+  }
 }
 
 .rmodal__phone-status {
@@ -793,7 +974,10 @@ $text-body: rgba(255, 255, 255, 0.72);
   border-radius: 12px;
   cursor: pointer;
   box-shadow: 0 8px 28px rgba(colors.$BAKANO-PINK, 0.35);
-  transition: transform 0.2s ease, box-shadow 0.25s ease, opacity 0.2s;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.25s ease,
+    opacity 0.2s;
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
@@ -811,7 +995,9 @@ $text-body: rgba(255, 255, 255, 0.72);
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .rmodal__spinner {
@@ -828,7 +1014,10 @@ $text-body: rgba(255, 255, 255, 0.72);
   color: $text-muted;
   margin: 4px 0 0;
 
-  svg { opacity: 0.5; flex-shrink: 0; }
+  svg {
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
 }
 
 // ── Thank You step ────────────────────────────────────────────────────────────
@@ -878,13 +1067,15 @@ $text-body: rgba(255, 255, 255, 0.72);
   font-family: fonts.$font-interface;
   font-size: 0.68rem;
   line-height: 1.6;
-  color: rgba(255,255,255,0.22);
+  color: rgba(255, 255, 255, 0.22);
   max-width: 420px;
   margin: 0;
 }
 
 .hide-mobile {
-  @media (max-width: 480px) { display: none; }
+  @media (max-width: 480px) {
+    display: none;
+  }
 }
 
 // ── Team cards ────────────────────────────────────────────────────────────────
@@ -901,13 +1092,15 @@ $text-body: rgba(255, 255, 255, 0.72);
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid $border;
   border-radius: 14px;
   flex: 1;
   min-width: 180px;
   max-width: 220px;
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 
   &:hover {
     border-color: rgba(colors.$BAKANO-PINK, 0.2);
@@ -941,7 +1134,7 @@ $text-body: rgba(255, 255, 255, 0.72);
   span {
     font-family: fonts.$font-interface;
     font-size: 0.68rem;
-    color: rgba(255,255,255,0.38);
+    color: rgba(255, 255, 255, 0.38);
     line-height: 1.3;
   }
 }
@@ -951,16 +1144,25 @@ $text-body: rgba(255, 255, 255, 0.72);
 }
 
 @keyframes cta-glow {
-  0%, 100% { box-shadow: 0 8px 28px rgba(colors.$BAKANO-PINK, 0.35); }
-  50% { box-shadow: 0 8px 44px rgba(colors.$BAKANO-PINK, 0.6); }
+  0%,
+  100% {
+    box-shadow: 0 8px 28px rgba(colors.$BAKANO-PINK, 0.35);
+  }
+  50% {
+    box-shadow: 0 8px 44px rgba(colors.$BAKANO-PINK, 0.6);
+  }
 }
 
 // ── Transiciones ──────────────────────────────────────────────────────────────
 .rmodal-fade-enter-active {
-  transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    backdrop-filter 0.3s ease;
 
   .rmodal {
-    transition: opacity 0.3s ease, transform 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
+    transition:
+      opacity 0.3s ease,
+      transform 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
   }
 }
 
@@ -968,7 +1170,9 @@ $text-body: rgba(255, 255, 255, 0.72);
   transition: opacity 0.22s ease;
 
   .rmodal {
-    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.55, 0, 1, 0.45);
+    transition:
+      opacity 0.22s ease,
+      transform 0.22s cubic-bezier(0.55, 0, 1, 0.45);
   }
 }
 
@@ -991,11 +1195,15 @@ $text-body: rgba(255, 255, 255, 0.72);
 }
 
 .dropdown-enter-active {
-  transition: opacity 0.18s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    opacity 0.18s ease,
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .dropdown-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .dropdown-enter-from {

@@ -4,8 +4,10 @@ import { useRouter } from 'vue-router'
 import RegistrationModal from '@/components/RegistrationModal.vue'
 import { captureFbParams } from '@/utils/fbclid'
 
-const bakanoLogo = 'https://res.cloudinary.com/dpuody0df/image/upload/v1775587085/bakano/logos/bakano-light.png'
-const luisPhoto = 'https://res.cloudinary.com/dpuody0df/image/upload/v1775587087/bakano/team/luis.webp'
+const bakanoLogo =
+  'https://res.cloudinary.com/dpuody0df/image/upload/v1775587085/bakano/logos/bakano-light.png'
+const luisPhoto =
+  'https://res.cloudinary.com/dpuody0df/image/upload/v1775587087/bakano/team/luis.webp'
 
 const router = useRouter()
 const modalOpen = ref(false)
@@ -72,7 +74,6 @@ onMounted(() => {
 
 <template>
   <div class="funnel">
-
     <!-- ══════════════════════════════════════════════
          TOP BAR — solo logo centrado
          ══════════════════════════════════════════════ -->
@@ -109,22 +110,31 @@ onMounted(() => {
          ══════════════════════════════════════════════ -->
     <section class="funnel__hero" aria-labelledby="funnel-headline">
       <div class="funnel__container">
-
         <!-- Eyebrow -->
         <p class="funnel__eyebrow">Metodología Data Growth Business™</p>
 
         <!-- Headline -->
         <h1 id="funnel-headline" class="funnel__headline">
-          Ayudamos a dueños de negocios establecidos a
-          <span class="funnel__headline-accent">abrir su mercado y aumentar su facturación entre un 10% y 20%</span>
+          Ayudamos a dueños y socios de negocios que facturan más de $20,000 al mes a
+          <span class="funnel__headline-accent"
+            >abrir su mercado y aumentar su facturación entre un 10% y 20%</span
+          >
           de forma predecible
         </h1>
 
         <!-- Sub-pillars -->
         <ul class="funnel__pillars" role="list">
           <li v-for="p in pillars" :key="p" class="funnel__pillar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-              <polyline points="20 6 9 17 4 12"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              aria-hidden="true"
+            >
+              <polyline points="20 6 9 17 4 12" />
             </svg>
             {{ p }}
           </li>
@@ -132,8 +142,15 @@ onMounted(() => {
 
         <!-- VSL Frame -->
         <div class="funnel__vsl-wrap">
-
-          <div class="funnel__vsl" role="button" tabindex="0" aria-label="Ver video y registrarse" @click="openModal()" @keydown.enter="openModal()" @keydown.space.prevent="openModal()">
+          <div
+            class="funnel__vsl"
+            role="button"
+            tabindex="0"
+            aria-label="Ver video y registrarse"
+            @click="openModal()"
+            @keydown.enter="openModal()"
+            @keydown.space.prevent="openModal()"
+          >
             <img
               src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/pEFChujwCCaMWBNbZYD1/media/698ba28538edf84b711ef48c.png"
               alt="Video — Metodología Data Growth Business"
@@ -142,8 +159,14 @@ onMounted(() => {
             />
             <div class="funnel__vsl-overlay" aria-hidden="true">
               <div class="funnel__vsl-play">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
               </div>
             </div>
@@ -153,19 +176,35 @@ onMounted(() => {
         <!-- CTA primary -->
         <div class="funnel__cta-wrap">
           <button class="funnel__cta-btn" @click="openModal()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
             </svg>
-            REGISTRARME A LA ASESORÍA ¡AHORA!
+            SOLICITAR MI DIAGNÓSTICO ESTRATÉGICO
           </button>
           <p class="funnel__cta-sub">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
             </svg>
-            100% gratuito · Sin compromiso · Cupos limitados
+            Sin costo · Solicitudes sujetas a calificación
           </p>
         </div>
-
       </div>
     </section>
 
@@ -178,8 +217,15 @@ onMounted(() => {
         <div class="funnel__stats-grid">
           <div v-for="stat in stats" :key="stat.number" class="funnel__stat">
             <div class="funnel__stat-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path :d="stat.icon"/>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path :d="stat.icon" />
               </svg>
             </div>
             <strong class="funnel__stat-number">{{ stat.number }}</strong>
@@ -194,7 +240,6 @@ onMounted(() => {
          ══════════════════════════════════════════════ -->
     <section class="funnel__authority" aria-labelledby="authority-heading">
       <div class="funnel__container funnel__authority-inner">
-
         <!-- Foto -->
         <div class="funnel__authority-photo-wrap">
           <div class="funnel__authority-photo-glow" aria-hidden="true" />
@@ -206,7 +251,9 @@ onMounted(() => {
           />
           <div class="funnel__authority-badge">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+              <path
+                d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+              />
             </svg>
             Fundador verificado
           </div>
@@ -218,39 +265,68 @@ onMounted(() => {
           <h2 id="authority-heading" class="funnel__authority-name">Luis Reyes</h2>
           <p class="funnel__authority-role">CEO & Co-fundador de Bakano</p>
           <p class="funnel__authority-desc">
-            Luis Reyes ha dedicado su carrera a construir modelos de negocio escalables con tecnología y datos,
-            optimizando operaciones y aumentando ventas en empresas de múltiples industrias en
+            Luis Reyes ha dedicado su carrera a construir modelos de negocio escalables con
+            tecnología y datos, optimizando operaciones y aumentando ventas en empresas de múltiples
+            industrias en
             <strong>Ecuador, Colombia, Estados Unidos y Singapur</strong>.
           </p>
 
           <ul class="funnel__authority-achievements" role="list">
             <li class="funnel__authority-achievement">
               <span class="funnel__achievement-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
               </span>
-              <span>Ha ayudado a <strong>más de 25 negocios establecidos</strong> en Latinoamérica a aumentar su facturación en más de un 20% sin depender de videos virales</span>
+              <span
+                >Ha ayudado a <strong>más de 25 negocios establecidos</strong> en Latinoamérica a
+                aumentar su facturación en más de un 20% sin depender de videos virales</span
+              >
             </li>
             <li class="funnel__authority-achievement">
               <span class="funnel__achievement-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
               </span>
-              <span>Generó <strong>más de $50.000 USD en ventas</strong> para sus clientes con estrategia digital estructurada</span>
+              <span
+                >Generó <strong>más de $50.000 USD en ventas</strong> para sus clientes con
+                estrategia digital estructurada</span
+              >
             </li>
             <li class="funnel__authority-achievement">
               <span class="funnel__achievement-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
               </span>
-              <span>Metodología probada en <strong>Ecuador, Colombia, EE.UU. y Singapur</strong></span>
+              <span
+                >Metodología probada en <strong>Ecuador, Colombia, EE.UU. y Singapur</strong></span
+              >
             </li>
           </ul>
         </div>
-
       </div>
     </section>
 
@@ -269,26 +345,43 @@ onMounted(() => {
         />
 
         <h2 class="funnel__second-cta-title">
-          ¿Listo para profesionalizar<br>
+          ¿Tu negocio ya supera los $20,000 al mes y quieres profesionalizar<br />
           <span class="funnel__headline-accent">tu marketing y ventas?</span>
         </h2>
         <p class="funnel__second-cta-sub">
-          Agenda tu asesoría gratuita y descubre cómo la metodología Data Growth Business
+          Solicita un diagnóstico estratégico y descubre cómo la metodología Data Growth Business
           puede aumentar tu facturación de forma predecible.
         </p>
 
         <div class="funnel__cta-wrap">
           <button class="funnel__cta-btn funnel__cta-btn--large" @click="openModal()">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
             </svg>
-            REGISTRARME A LA ASESORÍA ¡AHORA!
+            SOLICITAR MI DIAGNÓSTICO ESTRATÉGICO
           </button>
           <p class="funnel__cta-sub">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
             </svg>
-            100% gratuito · Sin compromiso · Cupos limitados
+            Sin costo · Solicitudes sujetas a calificación
           </p>
         </div>
       </div>
@@ -315,15 +408,14 @@ onMounted(() => {
         </p>
 
         <p class="funnel__footer-disclaimer">
-          Esta página web es operada y mantenida por <strong>Negocios del Pacifico</strong>.
-          Somos una empresa de educación y capacitación en ventas y marketing. No vendemos
-          una oportunidad de negocio, ni programas para "hacerse rico rápido". Los resultados
-          varían y dependen del esfuerzo, tiempo y habilidad individuales.
-          Este sitio <strong>NO</strong> está respaldado por Meta Platforms, Inc. ni forma parte de Facebook.
+          Esta página web es operada y mantenida por <strong>Negocios del Pacifico</strong>. Somos
+          una empresa de educación y capacitación en ventas y marketing. No vendemos una oportunidad
+          de negocio, ni programas para "hacerse rico rápido". Los resultados varían y dependen del
+          esfuerzo, tiempo y habilidad individuales. Este sitio <strong>NO</strong> está respaldado
+          por Meta Platforms, Inc. ni forma parte de Facebook.
         </p>
       </div>
     </footer>
-
   </div>
 </template>
 
@@ -382,9 +474,11 @@ $text-body: rgba(255, 255, 255, 0.72);
   justify-content: center;
   gap: 12px;
   padding: 10px 16px;
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(colors.$BAKANO-PINK, 0.18) 0%,
-    rgba(colors.$BAKANO-PURPLE, 0.12) 100%);
+    rgba(colors.$BAKANO-PURPLE, 0.12) 100%
+  );
   border-bottom: 1px solid rgba(colors.$BAKANO-PINK, 0.2);
   font-family: fonts.$font-interface;
   font-size: 0.82rem;
@@ -404,8 +498,15 @@ $text-body: rgba(255, 255, 255, 0.72);
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.75); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.75);
+  }
 }
 
 .funnel__timer {
@@ -520,8 +621,8 @@ $text-body: rgba(255, 255, 255, 0.72);
   overflow: hidden;
   border: 1px solid rgba(colors.$BAKANO-PINK, 0.2);
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.04) inset,
-    0 32px 80px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 32px 80px rgba(0, 0, 0, 0.5),
     0 0 60px rgba(colors.$BAKANO-PINK, 0.08);
   cursor: pointer;
 
@@ -544,7 +645,7 @@ $text-body: rgba(255, 255, 255, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0, 0, 0, 0.35);
 }
 
 .funnel__vsl-play {
@@ -556,7 +657,9 @@ $text-body: rgba(255, 255, 255, 0.72);
   align-items: center;
   justify-content: center;
   color: colors.$white;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s ease;
   box-shadow: 0 8px 32px rgba(colors.$BAKANO-PINK, 0.45);
 
   svg {
@@ -597,15 +700,17 @@ $text-body: rgba(255, 255, 255, 0.72);
   cursor: pointer;
   box-shadow:
     0 8px 32px rgba(colors.$BAKANO-PINK, 0.4),
-    0 0 0 1px rgba(255,255,255,0.08) inset;
-  transition: transform 0.2s ease, box-shadow 0.25s ease;
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.25s ease;
   animation: cta-pulse 2.5s ease-in-out infinite;
 
   &:hover {
     transform: translateY(-3px);
     box-shadow:
       0 16px 48px rgba(colors.$BAKANO-PINK, 0.55),
-      0 0 0 1px rgba(255,255,255,0.12) inset;
+      0 0 0 1px rgba(255, 255, 255, 0.12) inset;
     animation: none;
   }
 
@@ -631,8 +736,17 @@ $text-body: rgba(255, 255, 255, 0.72);
 }
 
 @keyframes cta-pulse {
-  0%, 100% { box-shadow: 0 8px 32px rgba(colors.$BAKANO-PINK, 0.4), 0 0 0 1px rgba(255,255,255,0.08) inset; }
-  50% { box-shadow: 0 8px 48px rgba(colors.$BAKANO-PINK, 0.65), 0 0 0 1px rgba(255,255,255,0.1) inset; }
+  0%,
+  100% {
+    box-shadow:
+      0 8px 32px rgba(colors.$BAKANO-PINK, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  }
+  50% {
+    box-shadow:
+      0 8px 48px rgba(colors.$BAKANO-PINK, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  }
 }
 
 .funnel__cta-sub {
@@ -692,8 +806,10 @@ $text-body: rgba(255, 255, 255, 0.72);
   padding: 32px 24px;
   border-radius: 16px;
   border: 1px solid $border;
-  background: rgba(255,255,255,0.02);
-  transition: border-color 0.25s ease, background 0.25s ease;
+  background: rgba(255, 255, 255, 0.02);
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease;
 
   &:hover {
     border-color: rgba(colors.$BAKANO-PINK, 0.2);
@@ -705,9 +821,11 @@ $text-body: rgba(255, 255, 255, 0.72);
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg,
+  background: linear-gradient(
+    135deg,
     rgba(colors.$BAKANO-PINK, 0.15),
-    rgba(colors.$BAKANO-PURPLE, 0.1));
+    rgba(colors.$BAKANO-PURPLE, 0.1)
+  );
   border: 1px solid rgba(colors.$BAKANO-PINK, 0.15);
   display: flex;
   align-items: center;
@@ -771,9 +889,7 @@ $text-body: rgba(255, 255, 255, 0.72);
 .funnel__authority-photo-glow {
   position: absolute;
   inset: -30px;
-  background: radial-gradient(circle,
-    rgba(colors.$BAKANO-PINK, 0.15) 0%,
-    transparent 65%);
+  background: radial-gradient(circle, rgba(colors.$BAKANO-PINK, 0.15) 0%, transparent 65%);
   pointer-events: none;
   border-radius: 50%;
 }
@@ -787,8 +903,8 @@ $text-body: rgba(255, 255, 255, 0.72);
   border-radius: 20px;
   border: 1px solid rgba(colors.$BAKANO-PINK, 0.15);
   box-shadow:
-    0 32px 80px rgba(0,0,0,0.4),
-    0 0 0 1px rgba(255,255,255,0.04) inset;
+    0 32px 80px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
   position: relative;
   z-index: 1;
 
@@ -904,10 +1020,12 @@ $text-body: rgba(255, 255, 255, 0.72);
 .funnel__second-cta-glow {
   position: absolute;
   inset: -60px;
-  background: radial-gradient(ellipse 70% 60% at 50% 50%,
+  background: radial-gradient(
+    ellipse 70% 60% at 50% 50%,
     rgba(colors.$BAKANO-PURPLE, 0.1) 0%,
     rgba(colors.$BAKANO-PINK, 0.06) 50%,
-    transparent 70%);
+    transparent 70%
+  );
   pointer-events: none;
 }
 
@@ -932,7 +1050,9 @@ $text-body: rgba(255, 255, 255, 0.72);
   position: relative;
 
   br {
-    @media (max-width: 480px) { display: none; }
+    @media (max-width: 480px) {
+      display: none;
+    }
   }
 }
 
@@ -999,7 +1119,7 @@ $text-body: rgba(255, 255, 255, 0.72);
   font-family: fonts.$font-interface;
   font-size: 0.68rem;
   line-height: 1.65;
-  color: rgba(255,255,255,0.25);
+  color: rgba(255, 255, 255, 0.25);
   max-width: 680px;
   margin-inline: auto;
   margin-bottom: 0;

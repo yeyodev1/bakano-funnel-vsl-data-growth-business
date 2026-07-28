@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { generateEventId, trackStage } from '@/utils/ghl'
+import { getStoredFbParams } from '@/utils/fbclid'
 
 const router = useRouter()
 const iframeEl = ref<HTMLIFrameElement | null>(null)
 const iframeHeight = ref(1100)
+let bookingHandled = false
 
-const LOGO = 'https://res.cloudinary.com/dpuody0df/image/upload/v1775587085/bakano/logos/bakano-light.png'
+const LOGO =
+  'https://res.cloudinary.com/dpuody0df/image/upload/v1775587085/bakano/logos/bakano-light.png'
 const BASE_URL = 'https://api.leadconnectorhq.com/widget/booking/dtpY2GCQjoOkpm8JUtYz'
 
 // Pre-fill calendar with stored contact data
@@ -14,11 +18,11 @@ const calendarUrl = computed(() => {
   try {
     const stored = localStorage.getItem('bk_contact')
     if (!stored) return BASE_URL
-    const { nombre, email, phone } = JSON.parse(stored)
+    const { nombre, email, telefono, phone } = JSON.parse(stored)
     const params = new URLSearchParams()
     if (nombre) params.set('firstName', nombre)
-    if (email)  params.set('email', email)
-    if (phone)  params.set('phone', phone)
+    if (email) params.set('email', email)
+    if (telefono || phone) params.set('phone', telefono || phone)
     const qs = params.toString()
     return qs ? `${BASE_URL}?${qs}` : BASE_URL
   } catch {
@@ -27,7 +31,7 @@ const calendarUrl = computed(() => {
 })
 
 function onMessage(event: MessageEvent) {
-  if (!event.data) return
+  if (!event.data || event.source !== iframeEl.value?.contentWindow) return
 
   // GHL dynamic height resize
   if (
@@ -42,18 +46,58 @@ function onMessage(event: MessageEvent) {
 
   // GHL booking confirmed — exact event: ['msgsndr-booking-complete', {...}]
   if (Array.isArray(event.data) && event.data[0] === 'msgsndr-booking-complete') {
+    if (bookingHandled) return
+    let qualification: { califica?: boolean } = {}
+    try {
+      qualification = JSON.parse(localStorage.getItem('bk_qualification') ?? '{}')
+    } catch { /* ignorar */ }
+    if (!qualification.califica) return
+    bookingHandled = true
+
+    const scheduleEventId = generateEventId('schedule')
+    let contact = { nombre: '', apellido: '', negocio: '', email: '', telefono: '' }
+    try {
+      contact = { ...contact, ...JSON.parse(localStorage.getItem('bk_contact') ?? '{}') }
+    } catch {
+      /* ignorar */
+    }
+
+    trackStage('cita_agendada', {
+      ...contact,
+      event_id: scheduleEventId,
+      event_name: 'Schedule',
+      qualification_status: 'qualified_20k_owner',
+      ...getStoredFbParams(),
+    })
+    ;(window as any).fbq?.(
+      'track',
+      'Schedule',
+      { content_name: 'cita-estrategica-calificada' },
+      { eventID: scheduleEventId },
+    )
     localStorage.setItem('bk_booked_at', String(Date.now()))
     router.push('/cita-confirmada')
   }
 }
 
-onMounted(() => window.addEventListener('message', onMessage))
+onMounted(() => {
+  const isDev = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  let qualification: { califica?: boolean } = {}
+  try {
+    qualification = JSON.parse(localStorage.getItem('bk_qualification') ?? '{}')
+  } catch { /* ignorar */ }
+
+  if (!isDev && !qualification.califica) {
+    router.replace('/')
+    return
+  }
+  window.addEventListener('message', onMessage)
+})
 onUnmounted(() => window.removeEventListener('message', onMessage))
 </script>
 
 <template>
   <div class="booking">
-
     <!-- TOP BAR -->
     <header class="booking__topbar">
       <img :src="LOGO" alt="Bakano" class="booking__logo" />
@@ -78,9 +122,7 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
     <!-- HEADING -->
     <section class="booking__hero">
       <h1 class="booking__title">Selecciona tu horario</h1>
-      <p class="booking__subtitle">
-        Elige el día y la hora que mejor se adapte a tu agenda
-      </p>
+      <p class="booking__subtitle">Elige el día y la hora que mejor se adapte a tu agenda</p>
     </section>
 
     <!-- CALENDAR EMBED -->
@@ -97,12 +139,6 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
         ></iframe>
       </div>
 
-      <div class="calendar__fallback">
-        <button class="btn btn--ghost" @click="router.push('/cita-confirmada')">
-          Ya agendé mi cita
-          <i class="fa-solid fa-arrow-right"></i>
-        </button>
-      </div>
     </section>
 
     <!-- FOOTER -->
@@ -112,9 +148,10 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
         <span class="footer__sep">·</span>
         <RouterLink to="/aviso-legal">Aviso Legal</RouterLink>
       </div>
-      <p class="footer__copy">© {{ new Date().getFullYear() }} NEGOCIOS DEL PACIFICO. Todos los derechos reservados.</p>
+      <p class="footer__copy">
+        © {{ new Date().getFullYear() }} NEGOCIOS DEL PACIFICO. Todos los derechos reservados.
+      </p>
     </footer>
-
   </div>
 </template>
 
@@ -255,8 +292,12 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
     text-transform: uppercase;
     letter-spacing: 0.04em;
 
-    .stepper__step--done & { color: colors.$BAKANO-GREEN; }
-    .stepper__step--active & { color: colors.$white; }
+    .stepper__step--done & {
+      color: colors.$BAKANO-GREEN;
+    }
+    .stepper__step--active & {
+      color: colors.$white;
+    }
   }
 
   &__line {
@@ -265,7 +306,9 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
     background: rgba(colors.$BAKANO-PURPLE, 0.25);
     border-radius: 2px;
 
-    &--done { background: colors.$BAKANO-GREEN; }
+    &--done {
+      background: colors.$BAKANO-GREEN;
+    }
   }
 
   &__caption {
@@ -345,7 +388,9 @@ onUnmounted(() => window.removeEventListener('message', onMessage))
       text-decoration: none;
       transition: color 0.2s;
 
-      &:hover { color: colors.$white; }
+      &:hover {
+        color: colors.$white;
+      }
     }
   }
 

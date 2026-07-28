@@ -35,6 +35,7 @@ Page transitions defined in `App.vue` (fade + slide, respects `prefers-reduced-m
 | Key | What | Written by |
 |---|---|---|
 | `bk_contact` | `{nombre, apellido, negocio, email, telefono, timestamp}` | RegistrationModal + VideoView guard. A Pinia store hydrates from it on init. |
+| `bk_qualification` | `{rol, facturacion, califica, timestamp}` | CalendarModal + CalificarView |
 | `bk_disq_at` | timestamp ms | CalendarModal on disqualify |
 | `bk_booked_at` | timestamp ms | BookingView on confirm |
 | `bk_fb` (sessionStorage) | `{fbclid, fbc, fbp, utm_*}` | `fbclid.ts` on FunnelView mount |
@@ -42,10 +43,12 @@ Page transitions defined in `App.vue` (fade + slide, respects `prefers-reduced-m
 ## Guards
 - **FunnelView**: `bk_disq_at` < 24h → `/sin-espacio` (disabled on localhost).
 - **VideoView**: no `bk_contact` → blocking overlay (disabled on localhost).
-- **CalendarModal**: `objetivo = "viral"` → disqualify always. Otherwise, threshold depends on `vertical`: servicio min $10k (rejects `<10k`), producto/gastronomía min $15k (rejects `<15k`). Disqualify saves `bk_disq_at`.
+- **CalendarModal / CalificarView**: only owner/partner + monthly revenue above $20k + commercial objective qualifies. Others are tagged for nurture and routed to `/sin-espacio`; disqualification saves `bk_disq_at`.
+- **CalendarModal UX**: 6-step wizard (one question per step, radio auto-advance after ~280ms, progress bar, back button). Step 6 = mejora textarea + consent + submit.
 
 ## GHL integration
 - **Tracker webhook**: hardcoded URL in `src/utils/ghl.ts` — `trackStage(etapa, data)`, silent on failure.
+- Initial contact fires `CompleteRegistration`; only qualified $20k+ owner/partner submissions fire `Lead`; confirmed calendar bookings fire `Schedule`.
 - **Calendar iframe**: `https://api.leadconnectorhq.com/widget/booking/dtpY2GCQjoOkpm8JUtYz` with `?firstName=&email=&phone=` from `bk_contact`. Booking confirmed via `postMessage(['msgsndr-booking-complete', {...}])`. Height auto-resizes via `postMessage({ type: 'booking-app', height: N })`.
 
 ## Vite quirks
