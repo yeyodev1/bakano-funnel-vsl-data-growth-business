@@ -20,7 +20,8 @@ export const REVENUE_LABELS = Object.fromEntries(
   REVENUE_OPTIONS.map((option) => [option.value, option.label]),
 )
 
-const DECISION_MAKER_ROLES = new Set(['dueno', 'socio'])
+// Director/gerente cuenta como decisor: con facturación alta es interlocutor válido
+const DECISION_MAKER_ROLES = new Set(['dueno', 'socio', 'director'])
 const QUALIFIED_REVENUE = new Set(['20k-50k', '50k-100k', '>100k'])
 
 export function qualifiesAsHighValueLead(
