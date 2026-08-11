@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import RegistrationModal from '@/components/RegistrationModal.vue'
 import { captureFbParams } from '@/utils/fbclid'
@@ -57,9 +57,23 @@ const seconds = ref('12')
 
 let interval: ReturnType<typeof setInterval>
 
+// ── Barra CTA fija (aparece al pasar el hero) ────────────────────────────────
+const showStickyCta = ref(false)
+
+const onScroll = () => {
+  showStickyCta.value = window.scrollY > 520
+}
+
+// ── Escasez: cupos de la semana ──────────────────────────────────────────────
+// Rota 4 → 3 → 2 según el día de la semana para que no se vea estático
+const spotsLeft = ref(3)
+
 onMounted(() => {
   // Captura fbclid de la URL (llega cuando usuario hace click en anuncio Meta)
   captureFbParams()
+
+  const day = new Date().getDay()
+  spotsLeft.value = day <= 2 ? 4 : day <= 4 ? 3 : 2
 
   let total = 23 * 3600 + 47 * 60 + 12
   interval = setInterval(() => {
@@ -69,6 +83,14 @@ onMounted(() => {
     minutes.value = String(Math.floor((total % 3600) / 60)).padStart(2, '0')
     seconds.value = String(total % 60).padStart(2, '0')
   }, 1000)
+
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+})
+
+onBeforeUnmount(() => {
+  clearInterval(interval)
+  window.removeEventListener('scroll', onScroll)
 })
 </script>
 
@@ -175,7 +197,11 @@ onMounted(() => {
 
         <!-- CTA primary -->
         <div class="funnel__cta-wrap">
-          <button class="funnel__cta-btn" @click="openModal()">
+          <p class="funnel__scarcity">
+            <span class="funnel__scarcity-dot" aria-hidden="true" />
+            Quedan <strong>{{ spotsLeft }} cupos</strong> de diagnóstico para esta semana
+          </p>
+          <button class="funnel__cta-btn funnel__cta-btn--pulse" @click="openModal()">
             <svg
               width="20"
               height="20"
@@ -232,6 +258,22 @@ onMounted(() => {
             <p class="funnel__stat-text">{{ stat.text }}</p>
           </div>
         </div>
+
+        <!-- CTA intermedio — engancha justo después de la prueba social -->
+        <button class="funnel__inline-cta" @click="openModal()">
+          <span>Quiero estos resultados en mi negocio</span>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
       </div>
     </section>
 
@@ -354,7 +396,11 @@ onMounted(() => {
         </p>
 
         <div class="funnel__cta-wrap">
-          <button class="funnel__cta-btn funnel__cta-btn--large" @click="openModal()">
+          <p class="funnel__scarcity">
+            <span class="funnel__scarcity-dot" aria-hidden="true" />
+            Quedan <strong>{{ spotsLeft }} cupos</strong> de diagnóstico para esta semana
+          </p>
+          <button class="funnel__cta-btn funnel__cta-btn--large funnel__cta-btn--pulse" @click="openModal()">
             <svg
               width="22"
               height="22"
@@ -386,6 +432,26 @@ onMounted(() => {
         </div>
       </div>
     </section>
+
+    <!-- ══════════════════════════════════════════════
+         STICKY CTA — barra fija inferior (aparece al scrollear)
+         ══════════════════════════════════════════════ -->
+    <Transition name="funnel-sticky">
+      <div v-if="showStickyCta && !modalOpen" class="funnel__sticky" role="region"
+        aria-label="Registro rápido">
+        <div class="funnel__sticky-copy">
+          <strong>Diagnóstico sin costo</strong>
+          <span>{{ spotsLeft }} cupos esta semana</span>
+        </div>
+        <button class="funnel__sticky-btn" @click="openModal()">
+          <span>QUIERO MI CUPO</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+    </Transition>
 
     <!-- ── Modal de registro ────────────────────────────────────────────────── -->
     <RegistrationModal :open="modalOpen" @close="modalOpen = false" />
@@ -435,6 +501,13 @@ $text-body: rgba(255, 255, 255, 0.72);
   background: $dark;
   color: colors.$white;
   min-height: 100vh;
+  // Los glows decorativos se salen del viewport en mobile → recorta sin crear scroll
+  overflow-x: clip;
+
+  @media (max-width: 768px) {
+    // Espacio para que la barra fija no tape el footer
+    padding-bottom: 92px;
+  }
 }
 
 // ── Container ────────────────────────────────────────────────────────────────
@@ -1065,6 +1138,227 @@ $text-body: rgba(255, 255, 255, 0.72);
   margin-inline: auto;
   margin-bottom: 52px;
   position: relative;
+}
+
+// ── Escasez ───────────────────────────────────────────────────────────────────
+.funnel__scarcity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 7px 16px;
+  border-radius: 50px;
+  border: 1px solid rgba(colors.$BAKANO-PINK, 0.28);
+  background: rgba(colors.$BAKANO-PINK, 0.08);
+  font-family: fonts.$font-interface;
+  font-size: 0.78rem;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.82);
+
+  strong {
+    color: colors.$BAKANO-PINK;
+    font-weight: 700;
+  }
+
+  @media (max-width: 600px) {
+    font-size: 0.72rem;
+    padding: 7px 12px;
+  }
+}
+
+.funnel__scarcity-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: colors.$BAKANO-PINK;
+  flex-shrink: 0;
+  animation: scarcity-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes scarcity-blink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(colors.$BAKANO-PINK, 0.6);
+  }
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 0 6px rgba(colors.$BAKANO-PINK, 0);
+  }
+}
+
+// ── Shine sweep sobre el CTA ──────────────────────────────────────────────────
+.funnel__cta-btn--pulse {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 45%;
+    left: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: skewX(-18deg);
+    animation: cta-shine 3.4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+@keyframes cta-shine {
+  0%,
+  55% {
+    left: -60%;
+  }
+  100% {
+    left: 130%;
+  }
+}
+
+// ── CTA intermedio (post prueba social) ───────────────────────────────────────
+.funnel__inline-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 40px auto 0;
+  padding: 15px 28px;
+  border-radius: 50px;
+  border: 1px solid rgba(colors.$BAKANO-PINK, 0.4);
+  background: rgba(colors.$BAKANO-PINK, 0.07);
+  color: colors.$white;
+  font-family: fonts.$font-interface;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+
+  svg {
+    transition: transform 0.2s ease;
+  }
+
+  &:hover {
+    background: rgba(colors.$BAKANO-PINK, 0.16);
+    border-color: rgba(colors.$BAKANO-PINK, 0.7);
+
+    svg {
+      transform: translateX(4px);
+    }
+  }
+
+  @media (max-width: 600px) {
+    width: 100%;
+    font-size: 0.85rem;
+    padding: 15px 18px;
+  }
+}
+
+// ── Sticky CTA bar ────────────────────────────────────────────────────────────
+.funnel__sticky {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(17, 14, 26, 0.96);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(colors.$BAKANO-PINK, 0.25);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.funnel__sticky-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+
+  strong {
+    font-family: fonts.$font-interface;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: colors.$white;
+  }
+
+  span {
+    font-family: fonts.$font-secondary;
+    font-size: 0.72rem;
+    color: colors.$BAKANO-PINK;
+  }
+
+  @media (max-width: 600px) {
+    strong {
+      font-size: 0.78rem;
+    }
+
+    span {
+      font-size: 0.66rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    display: none;
+  }
+}
+
+.funnel__sticky-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 50px;
+  font-family: fonts.$font-interface;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  color: colors.$white;
+  background: linear-gradient(135deg, colors.$BAKANO-PINK, colors.$BAKANO-PURPLE);
+  box-shadow: 0 6px 24px rgba(colors.$BAKANO-PINK, 0.45);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  @media (max-width: 600px) {
+    flex: 1;
+    padding: 14px 16px;
+    font-size: 0.76rem;
+  }
+}
+
+.funnel-sticky-enter-active,
+.funnel-sticky-leave-active {
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.funnel-sticky-enter-from,
+.funnel-sticky-leave-to {
+  transform: translateY(110%);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .funnel__scarcity-dot,
+  .funnel__cta-btn--pulse::after {
+    animation: none;
+  }
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
