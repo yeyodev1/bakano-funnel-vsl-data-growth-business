@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router'
 import RegistrationModal from '@/components/RegistrationModal.vue'
 import { captureFbParams } from '@/utils/fbclid'
 
+// Assets locales: se empaquetan con el build, no dependen de que el CDN responda
+import luisPhoto from '@/assets/team/luis.webp'
+
 const bakanoLogo =
   'https://res.cloudinary.com/dpuody0df/image/upload/v1775587085/bakano/logos/bakano-light.png'
-const luisPhoto =
-  'https://res.cloudinary.com/dpuody0df/image/upload/v1775587087/bakano/team/luis.webp'
 
 const router = useRouter()
 const modalOpen = ref(false)
@@ -289,7 +290,7 @@ onBeforeUnmount(() => {
             :src="luisPhoto"
             alt="Luis Reyes — Co-fundador y Gerente de Bakano"
             class="funnel__authority-photo"
-            loading="lazy"
+            loading="eager"
           />
           <div class="funnel__authority-badge">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -956,6 +957,10 @@ $text-body: rgba(255, 255, 255, 0.72);
     display: flex;
     flex-direction: column;
     align-items: center;
+    // Sin ancho explícito el flex item colapsaba y la foto salía en ~220px
+    width: 100%;
+    max-width: 280px;
+    margin-inline: auto;
   }
 }
 
@@ -981,9 +986,10 @@ $text-body: rgba(255, 255, 255, 0.72);
   position: relative;
   z-index: 1;
 
+  // En mobile la foto se veía chica (220px cuadrados) y Luis quedaba lejos:
+  // se mantiene el 3/4 vertical para darle presencia
   @media (max-width: 768px) {
-    max-width: 220px;
-    aspect-ratio: 1/1;
+    max-width: 280px;
   }
 }
 
