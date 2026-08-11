@@ -92,6 +92,8 @@ Basado en https://mkt.bakano.ec/registro-vsl-tr
 ## Imágenes CDN
 Las imágenes del funnel se suben a Cloudinary:
 - Cloud: `dpuody0df`
+- Foto de Luis Reyes (cloud `mrp1wwq1`): `.../image/upload/f_auto,q_auto,w_900/v1786480372/DSC06996.jpg`
+  — `FunnelView` cae a `@/assets/team/luis.webp` si el CDN falla (`@error`)
 - Las URLs se almacenan en `/tmp/cloudinary-urls.json` después de ejecutar el script de upload
 
 ## Colores de marca

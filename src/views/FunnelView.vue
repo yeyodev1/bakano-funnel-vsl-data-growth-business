@@ -4,11 +4,21 @@ import { useRouter } from 'vue-router'
 import RegistrationModal from '@/components/RegistrationModal.vue'
 import { captureFbParams } from '@/utils/fbclid'
 
-// Assets locales: se empaquetan con el build, no dependen de que el CDN responda
-import luisPhoto from '@/assets/team/luis.webp'
+// Copia local empaquetada por Vite: sirve de respaldo si el CDN no responde
+import luisPhotoLocal from '@/assets/team/luis.webp'
 
 const bakanoLogo =
   'https://res.cloudinary.com/dpuody0df/image/upload/v1775587085/bakano/logos/bakano-light.png'
+
+// f_auto,q_auto → WebP/AVIF según el navegador; w_900 basta para el marco de 280px en retina
+const LUIS_PHOTO_CDN =
+  'https://res.cloudinary.com/mrp1wwq1/image/upload/f_auto,q_auto,w_900/v1786480372/DSC06996.jpg'
+
+const luisPhoto = ref(LUIS_PHOTO_CDN)
+
+const onLuisPhotoError = () => {
+  luisPhoto.value = luisPhotoLocal
+}
 
 const router = useRouter()
 const modalOpen = ref(false)
@@ -291,6 +301,7 @@ onBeforeUnmount(() => {
             alt="Luis Reyes — Co-fundador y Gerente de Bakano"
             class="funnel__authority-photo"
             loading="eager"
+            @error="onLuisPhotoError"
           />
           <div class="funnel__authority-badge">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

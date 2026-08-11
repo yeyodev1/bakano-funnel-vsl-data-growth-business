@@ -22,9 +22,9 @@ onMounted(() => {
  * Implements premium atmospheric effects and manages data flow.
  */
 
-// Asset local: misma foto que el funnel, sin depender del CDN
-import LUIS_PHOTO from '@/assets/team/luis.webp'
-
+// Misma foto que el funnel (Cloudinary, f_auto/q_auto según navegador)
+const LUIS_PHOTO =
+  'https://res.cloudinary.com/mrp1wwq1/image/upload/f_auto,q_auto,w_900/v1786480372/DSC06996.jpg'
 const DENISSE_PHOTO =
   'https://res.cloudinary.com/dpuody0df/image/upload/v1775587088/bakano/team/denisse.webp'
 
